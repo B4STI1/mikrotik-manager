@@ -347,6 +347,18 @@ CREATE TABLE IF NOT EXISTS device_availability (
 );
 CREATE INDEX IF NOT EXISTS idx_device_availability_device ON device_availability(device_id, went_offline_at DESC);
 
+-- Manual topology links — user-drawn connections for devices with no auto-discovery
+CREATE TABLE IF NOT EXISTS manual_topology_links (
+  id               SERIAL PRIMARY KEY,
+  from_device_id   INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  to_device_id     INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  label            VARCHAR(100),
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(from_device_id, to_device_id)
+);
+CREATE INDEX IF NOT EXISTS idx_manual_topology_links_from ON manual_topology_links(from_device_id);
+CREATE INDEX IF NOT EXISTS idx_manual_topology_links_to   ON manual_topology_links(to_device_id);
+
 -- Configuration templates (reusable config sets pushed to devices or groups)
 CREATE TABLE IF NOT EXISTS config_templates (
   id               SERIAL PRIMARY KEY,

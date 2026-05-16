@@ -400,8 +400,15 @@ export const topologyApi = {
       devices: Device[];
       links: import('../types').TopologyLink[];
       externalNodes: import('../types').ExternalTopologyNode[];
+      segConns: { src: string; dst: string; port: string }[];
+      manualLinkIds: { id: number; from_device_id: number; to_device_id: number }[];
     }>('/topology'),
   discover: () => api.post('/topology/discover'),
+  createManualLink: (from_device_id: number, to_device_id: number, label?: string) =>
+    api.post<{ id: number; from_device_id: number; to_device_id: number; label: string | null }>(
+      '/topology/manual-links', { from_device_id, to_device_id, label }
+    ),
+  deleteManualLink: (id: number) => api.delete(`/topology/manual-links/${id}`),
 };
 
 // ─── Search ──────────────────────────────────────────────────────────────────
