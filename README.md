@@ -2,7 +2,7 @@
 
 A self-hosted, full-stack network management platform for MikroTik devices. Monitor, configure, and manage your entire MikroTik infrastructure — routers, switches, and wireless access points — from a single web interface.
 
-![Version](https://img.shields.io/badge/version-0.11.6_Beta-blue)
+![Version](https://img.shields.io/badge/version-0.11.7_Beta-blue)
 ![License](https://img.shields.io/badge/license-AGPLv3-blue)
 ![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white)
@@ -96,7 +96,7 @@ A self-hosted, full-stack network management platform for MikroTik devices. Moni
 ## Features
 
 ### Dashboard
-- Live KPI cards: total devices, online/offline count, connected wireless clients, active alerts
+- Live KPI cards: total devices, online/offline count, connected wireless clients, active alerts, fleet-wide 30-day availability %
 - Device type distribution chart
 - Firmware update notifications with per-device details
 - Historical client count graph (1h → 30d range)
@@ -109,6 +109,8 @@ A self-hosted, full-stack network management platform for MikroTik devices. Moni
 - Device credential encryption at rest
 - **Bulk device add** — "Try All" discovered devices runs as a server-side background job (survives browser tab close) with live progress and cancel support
 - CPU load and historical sparkline displayed correctly for all device types, including hardware switches that report 0% CPU via ASIC offloading
+- **Device tags** — colored labels for organizing and filtering devices; full tag management in Settings
+- **30-day availability tracking** — per-device uptime %, outage count, and longest outage duration recorded automatically; visible on the device Overview tab and the fleet dashboard
 
 ### Routers
 - Routing table viewer
@@ -144,19 +146,29 @@ Each service supports multi-device management with conflict detection:
 | **Syslog** | Logging actions (remote/memory/disk/echo) and routing rules; single-device or push-to-all with per-entry coverage; enable/disable rules |
 
 ### Network Topology
+- **LLDP-authoritative** — LLDP links are treated as ground truth; CDP/MNDP links to the same neighbor are automatically suppressed, eliminating spurious "Shared Segment" nodes
+- Bidirectional LLDP pairs merged into a single canonical edge with both port names labeled
 - Auto-discovered network map using LLDP, CDP, and MNDP neighbor data
-- Interactive node graph with device type icons
-- Protocol-priority link deduplication
+- Interactive node graph with device type icons and protocol-priority link deduplication
+- **Manual link drawing** — Connect Mode lets you drag between any two devices to draw a persistent connection for devices with no auto-discovered neighbors; connections are stored in the database and survive page reloads
+- **Orphan node detection** — devices with no known connections are grouped in a dedicated row with an orange warning banner prompting Connect Mode usage
+- Manual links render as purple dashed edges with a midpoint delete button
 
-### Client Tracking
-- All connected clients across all devices in one view
-- Filter by device, type, active status, or search by MAC/IP/hostname
-- Client detail page with connection history and vendor identification
-- Historical client count metrics
-- Configurable list refresh interval (Not Updating / 30 s / 1 min / 3 min) with preference saved per browser
+### Device Network Tools
+Per-device diagnostic and testing tools accessible from the device detail Tools tab:
+
+| Tool | Description |
+|---|---|
+| **Ping** | ICMP reachability test with RTT and loss metrics |
+| **Traceroute** | Hop-by-hop path trace to any destination |
+| **IP Scan** | ARP sweep of a subnet to discover live hosts |
+| **Wake-on-LAN** | Send a magic packet from the MikroTik device to wake a host |
+| **Packet Capture** | Start the RouterOS sniffer, capture for 5–60 seconds, download a `.pcap` file directly to your browser (opens in Wireshark). Requires SSH credentials on the device. |
+| **Bandwidth Test** | Measure throughput between two devices. Select any managed device as the target — the bandwidth-test server is automatically enabled on the target before the test and disabled afterward. Manual IP mode available for non-managed targets. |
 
 ### Backups
 - Trigger RouterOS backups on demand via SSH
+- **Scheduled automatic backups** — configurable cron schedule (e.g. nightly at 2 AM) with toggle in Settings; runs for all online devices
 - Download and manage backup files from the UI
 
 ### Alerts
@@ -168,6 +180,25 @@ Configurable alert rules with cooldown periods:
 - RouterOS log errors and warnings
 - New device discovered
 
+Alert delivery channels: **Email**, **Slack**, **Discord**, **Telegram**
+
+### Maintenance Windows
+- Schedule planned downtime windows per device or group of devices to suppress alerts automatically
+- One-time or recurring windows (cron-based)
+- Active window management with activate/deactivate controls
+- Managed from Settings → Maintenance
+
+### Audit Log
+- Every write operation (create, update, delete, push) performed by an authenticated user is recorded automatically
+- Log includes: user, timestamp, HTTP method, API path, entity type/ID, summary, IP address, and HTTP response status
+- Filterable and paginated view in Settings → Audit Log
+- Useful for multi-operator environments to track who changed what and when
+
+### Configuration Templates
+- Define reusable configuration sets (DNS servers, NTP servers, syslog host) and push them to one or more managed devices in a single operation
+- Per-device result reporting (success / error per device)
+- Managed from Settings → Config Templates
+
 ### Global Search
 Instant search across devices, clients, and events from the top navigation bar.
 
@@ -175,6 +206,7 @@ Instant search across devices, clients, and events from the top navigation bar.
 - Role-based access: **Admin**, **Operator** (read/write), **Viewer** (read-only)
 - Admin-only user creation and role assignment
 - JWT authentication with secure session handling
+- **Two-factor authentication (TOTP)** — per-user 2FA setup via QR code (compatible with Google Authenticator, Authy, etc.); login requires a 6-digit code after password when enabled; disable with password confirmation
 - **Credential preset access control** — presets can be restricted to admins only (`allow_operator_use`); operators only see presets they are permitted to use when adding or updating devices
 
 ### TLS / HTTPS
@@ -402,7 +434,7 @@ mikrotik-manager/
 │       │   └── mikrotik/   # RouterOS API client and device collector
 │       ├── db/             # Database migrations
 │       ├── config/         # DB, InfluxDB, Redis connections
-│       ├── middleware/      # Auth, error handling
+│       ├── middleware/      # Auth, audit logging, error handling
 │       └── utils/          # Helpers (crypto, OUI lookup, etc.)
 │
 ├── nginx/                  # Reverse proxy config and Dockerfile
