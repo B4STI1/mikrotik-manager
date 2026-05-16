@@ -1013,7 +1013,7 @@ export default function SettingsPage() {
                   <img src={totpSetupData.qr} alt="TOTP QR code" className="w-44 h-44 rounded-lg border border-gray-200 dark:border-slate-700" />
                 </div>
                 <details className="text-xs text-gray-500 dark:text-gray-400">
-                  <summary className="cursor-pointer select-none">Can't scan? Enter secret manually</summary>
+                  <summary className="cursor-pointer select-none">Can&apos;t scan? Enter secret manually</summary>
                   <code className="mt-1 block font-mono break-all">{totpSetupData.secret}</code>
                 </details>
                 <div>
