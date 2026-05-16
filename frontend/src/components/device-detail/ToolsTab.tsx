@@ -473,19 +473,35 @@ function PacketCaptureTool({ deviceId, interfaces }: { deviceId: number; interfa
 // ─── Bandwidth Test ───────────────────────────────────────────────────────────
 
 function BandwidthTestTool({ deviceId }: { deviceId: number }) {
-  const [address, setAddress] = useState('');
+  // 'managed' = pick a device from inventory; 'manual' = type an IP (server must be pre-enabled)
+  const [mode, setMode] = useState<'managed' | 'manual'>('managed');
+  const [targetDeviceId, setTargetDeviceId] = useState('');
+  const [manualAddress, setManualAddress] = useState('');
   const [direction, setDirection] = useState('both');
   const [duration, setDuration] = useState('5');
   const [protocol, setProtocol] = useState('tcp');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState<{ tx_mbps: number; rx_mbps: number; direction: string; protocol: string; duration: number } | null>(null);
+  const [result, setResult] = useState<{ tx_mbps: number; rx_mbps: number; direction: string; protocol: string; duration: number; target_ip: string } | null>(null);
+
+  const { data: allDevices = [] } = useQuery({
+    queryKey: ['devices'],
+    queryFn: () => devicesApi.list().then((r) => r.data),
+  });
+
+  // Exclude the current device from the target list
+  const targetDevices = allDevices.filter((d: { id: number; status?: string }) => d.id !== deviceId);
+
+  const canRun = mode === 'managed' ? !!targetDeviceId : !!manualAddress.trim();
 
   const run = async () => {
-    if (!address) return;
+    if (!canRun) return;
     setLoading(true); setError(''); setResult(null);
     try {
-      const { data } = await deviceToolsApi.btest(deviceId, { address, direction, duration: parseInt(duration), protocol });
+      const body = mode === 'managed'
+        ? { target_device_id: parseInt(targetDeviceId), direction, duration: parseInt(duration), protocol }
+        : { address: manualAddress.trim(), direction, duration: parseInt(duration), protocol };
+      const { data } = await deviceToolsApi.btest(deviceId, body);
       setResult(data);
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -498,17 +514,49 @@ function BandwidthTestTool({ deviceId }: { deviceId: number }) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-gray-500 dark:text-slate-400">
-        Runs RouterOS /tool/bandwidth-test to measure throughput between this device and a target IP.
-        The target must have the bandwidth-test server enabled.
+        Measures throughput between this device (client) and a target (server). When targeting a managed
+        device, the bandwidth-test server is automatically enabled and disabled for you.
       </p>
+
+      {/* Mode toggle */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setMode('managed')}
+          className={clsx('px-3 py-1 rounded text-xs font-medium border transition-colors', mode === 'managed'
+            ? 'bg-blue-600 text-white border-blue-600'
+            : 'border-gray-300 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:border-blue-400')}
+        >
+          Managed device
+        </button>
+        <button
+          onClick={() => setMode('manual')}
+          className={clsx('px-3 py-1 rounded text-xs font-medium border transition-colors', mode === 'manual'
+            ? 'bg-blue-600 text-white border-blue-600'
+            : 'border-gray-300 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:border-blue-400')}
+        >
+          Manual IP
+        </button>
+      </div>
+
       <div className="flex flex-wrap gap-3">
-        <input
-          className="input flex-1 min-w-48"
-          placeholder="Target IP address"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && run()}
-        />
+        {mode === 'managed' ? (
+          <select className="input flex-1 min-w-48" value={targetDeviceId} onChange={(e) => setTargetDeviceId(e.target.value)}>
+            <option value="">— Select target device —</option>
+            {targetDevices.map((d: { id: number; name: string; ip_address: string; status?: string }) => (
+              <option key={d.id} value={d.id}>
+                {d.name} ({d.ip_address}){d.status === 'offline' ? ' — offline' : ''}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            className="input flex-1 min-w-48"
+            placeholder="Target IP address"
+            value={manualAddress}
+            onChange={(e) => setManualAddress(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && run()}
+          />
+        )}
         <select className="input w-32" value={direction} onChange={(e) => setDirection(e.target.value)}>
           <option value="both">Both</option>
           <option value="receive">Receive</option>
@@ -523,6 +571,13 @@ function BandwidthTestTool({ deviceId }: { deviceId: number }) {
         </select>
         <RunButton loading={loading} onClick={run} label="Test" />
       </div>
+
+      {mode === 'manual' && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          Manual mode: ensure the bandwidth-test server is running on the target device before starting.
+        </p>
+      )}
+
       {loading && (
         <p className="text-sm text-gray-500 dark:text-slate-400">
           Running {duration}s bandwidth test — please wait…
@@ -534,13 +589,13 @@ function BandwidthTestTool({ deviceId }: { deviceId: number }) {
           {(result.direction === 'both' || result.direction === 'transmit') && (
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-center">
               <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">{result.tx_mbps} Mbps</div>
-              <div className="text-xs text-blue-500 dark:text-blue-400 mt-1">TX (Upload)</div>
+              <div className="text-xs text-blue-500 dark:text-blue-400 mt-1">TX (Upload to {result.target_ip})</div>
             </div>
           )}
           {(result.direction === 'both' || result.direction === 'receive') && (
             <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-center">
               <div className="text-2xl font-bold text-green-700 dark:text-green-300">{result.rx_mbps} Mbps</div>
-              <div className="text-xs text-green-500 dark:text-green-400 mt-1">RX (Download)</div>
+              <div className="text-xs text-green-500 dark:text-green-400 mt-1">RX (Download from {result.target_ip})</div>
             </div>
           )}
           <div className="col-span-2 text-xs text-gray-500 dark:text-slate-400 text-center">

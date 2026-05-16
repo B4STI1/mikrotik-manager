@@ -1873,32 +1873,66 @@ router.post('/:id/tools/capture', requireWrite, async (req: Request, res: Respon
 });
 
 // POST /api/devices/:id/tools/btest — bandwidth test via RouterOS
+// If target_device_id is provided: automatically enable/disable btest server on the target device.
+// If only address is provided: manual mode — user must ensure the btest server is already running.
 router.post('/:id/tools/btest', requireWrite, async (req: Request, res: Response) => {
-  const { address, direction = 'both', duration = 5, protocol = 'tcp' } = req.body as {
-    address?: string; direction?: string; duration?: number; protocol?: string;
+  const { target_device_id, address, direction = 'both', duration = 5, protocol = 'tcp' } = req.body as {
+    target_device_id?: number; address?: string; direction?: string; duration?: number; protocol?: string;
   };
-  if (!address) return res.status(400).json({ error: 'address is required' });
+  if (!target_device_id && !address) {
+    return res.status(400).json({ error: 'target_device_id or address is required' });
+  }
   const testSec = Math.min(Math.max(1, Number(duration) || 5), 30);
 
   const device = await getToolDevice(req.params.id);
   if (!device) return res.status(404).json({ error: 'Device not found' });
 
+  // Resolve target: either a managed device (auto server management) or a manual IP
+  let targetAddress = address ?? '';
+  let targetUser: string | undefined;
+  let targetPassword: string | undefined;
+  let serverClient: RouterOSClient | null = null;
+
+  if (target_device_id) {
+    const target = await getToolDevice(String(target_device_id));
+    if (!target) return res.status(404).json({ error: 'Target device not found' });
+    targetAddress = target.ip_address;
+    targetUser = target.api_username;
+    targetPassword = decrypt(target.api_password_encrypted);
+    serverClient = new RouterOSClient(
+      target.ip_address, target.api_port, target.api_username, targetPassword, 15_000, 20_000
+    );
+  }
+
   const client = new RouterOSClient(
     device.ip_address, device.api_port, device.api_username,
     decrypt(device.api_password_encrypted),
     15_000,
-    (testSec + 10) * 1000
+    (testSec + 15) * 1000
   );
+
   try {
+    // Enable bandwidth-test server on target device before running test
+    if (serverClient) {
+      await serverClient.connect();
+      await serverClient.execute('/tool/bandwidth-server/set', { enabled: 'yes', authenticate: 'yes' });
+      serverClient.disconnect();
+    }
+
     await client.connect();
-    const rows = await client.executeStreaming('/tool/bandwidth-test', {
-      address,
+    const btestParams: Record<string, string> = {
+      address: targetAddress,
       direction: ['receive', 'transmit', 'both'].includes(direction) ? direction : 'both',
       duration: String(testSec),
       protocol: ['tcp', 'udp'].includes(protocol) ? protocol : 'tcp',
-    }, (testSec + 10) * 1000);
+    };
+    // When testing against a managed device, authenticate with its RouterOS credentials
+    if (targetUser) btestParams['user'] = targetUser;
+    if (targetPassword) btestParams['password'] = targetPassword;
 
-    // Return the final summary row (last row that has tx/rx total averages)
+    const rows = await client.executeStreaming('/tool/bandwidth-test', btestParams, (testSec + 15) * 1000);
+    client.disconnect();
+
     const lastRow = rows.filter((r) => r['tx-total-average'] !== undefined || r['rx-total-average'] !== undefined).at(-1);
     const toMbps = (v: string | undefined) => v ? Math.round(parseInt(v) / 1_000_000) : 0;
 
@@ -1908,12 +1942,23 @@ router.post('/:id/tools/btest', requireWrite, async (req: Request, res: Response
       direction,
       protocol,
       duration: testSec,
+      target_ip: targetAddress,
       raw: lastRow ?? rows.at(-1) ?? null,
     });
   } catch (err) {
     return res.status(500).json({ error: (err as Error).message });
   } finally {
     client.disconnect();
+    // Always disable btest server on target when done (success or failure)
+    if (serverClient) {
+      try {
+        await serverClient.connect();
+        await serverClient.execute('/tool/bandwidth-server/set', { enabled: 'no' });
+        serverClient.disconnect();
+      } catch {
+        // Best-effort — don't mask the original error
+      }
+    }
   }
 });
 
