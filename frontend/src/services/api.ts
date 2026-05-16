@@ -728,4 +728,52 @@ export const networkServicesApi = {
     api.delete(`/network-services/wireguard/peer/${encodeURIComponent(id)}`, { params: { deviceId } }),
 };
 
+// ─── Maintenance Windows ──────────────────────────────────────────────────────
+export interface MaintenanceWindow {
+  id: number;
+  name: string;
+  device_ids: number[];
+  start_at: string;
+  end_at: string;
+  recurring_cron: string | null;
+  active: boolean;
+  created_at: string;
+}
+export const maintenanceApi = {
+  list: () => api.get<MaintenanceWindow[]>('/maintenance-windows'),
+  create: (data: Omit<MaintenanceWindow, 'id' | 'created_at'>) =>
+    api.post<MaintenanceWindow>('/maintenance-windows', data),
+  update: (id: number, data: Partial<MaintenanceWindow>) =>
+    api.put<MaintenanceWindow>(`/maintenance-windows/${id}`, data),
+  delete: (id: number) => api.delete(`/maintenance-windows/${id}`),
+};
+
+// ─── Tags ────────────────────────────────────────────────────────────────────
+export const tagsApi = {
+  list: () => api.get<import('../types').Tag[]>('/tags'),
+  create: (name: string, color: string) => api.post<import('../types').Tag>('/tags', { name, color }),
+  update: (id: number, data: { name?: string; color?: string }) => api.put<import('../types').Tag>(`/tags/${id}`, data),
+  delete: (id: number) => api.delete(`/tags/${id}`),
+  assignDevices: (tagId: number, deviceIds: number[], action: 'add' | 'remove') =>
+    api.post(`/tags/${tagId}/devices`, { deviceIds, action }),
+  deviceTags: (deviceId: number) => api.get<import('../types').Tag[]>(`/tags/device/${deviceId}`),
+};
+
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+export const auditLogApi = {
+  list: (params: {
+    page?: number; limit?: number; userId?: number; entityType?: string;
+    search?: string; from?: string; to?: string;
+  } = {}) =>
+    api.get<{
+      rows: {
+        id: number; user_id: number | null; username: string | null;
+        method: string; path: string; entity_type: string | null;
+        entity_id: number | null; summary: string; ip_address: string | null;
+        status_code: number | null; created_at: string;
+      }[];
+      total: number; page: number; limit: number;
+    }>('/audit-log', { params }),
+};
+
 export default api;

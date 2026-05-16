@@ -5,7 +5,7 @@ import {
   Plus, RefreshCw, Router, Wifi, Trash2, ChevronRight, Search,
   Radar, ArrowUpCircle, Cpu, Pencil, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
-import { devicesApi, topologyApi, metricsApi } from '../services/api';
+import { devicesApi, topologyApi, metricsApi, tagsApi } from '../services/api';
 import type { Device } from '../types';
 import type { DiscoveredDevice } from '../services/api';
 import { useCanWrite } from '../hooks/useCanWrite';
@@ -126,6 +126,7 @@ export default function DevicesPage() {
   });
   const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'offline' | 'updates'>('all');
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [tagFilter, setTagFilter] = useState<number | null>(null);
 
   const { data: devices = [], isLoading } = useQuery({
     queryKey: ['devices'],
@@ -137,6 +138,11 @@ export default function DevicesPage() {
     queryKey: ['devices-discovered'],
     queryFn: () => devicesApi.discovered().then((r) => r.data),
     refetchInterval: 60_000,
+  });
+
+  const { data: allTags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => tagsApi.list().then((r) => r.data),
   });
 
   const syncMutation = useMutation({
@@ -184,6 +190,7 @@ export default function DevicesPage() {
       if (typeFilter === 'AP' && d.device_type !== 'wireless_ap') return false;
       if (typeFilter === 'SW' && d.device_type !== 'switch') return false;
       if (typeFilter === 'RTR' && d.device_type !== 'router') return false;
+      if (tagFilter != null && !d.tags?.some(t => t.id === tagFilter)) return false;
       return true;
     });
     const sorted = [...base].sort((a, b) => {
@@ -206,7 +213,7 @@ export default function DevicesPage() {
       return deviceSort.dir === 'asc' ? cmp : -cmp;
     });
     return sorted;
-  }, [devices, search, statusFilter, typeFilter, deviceSort]);
+  }, [devices, search, statusFilter, typeFilter, tagFilter, deviceSort]);
 
   const discoveredList = discovered as DiscoveredDevice[];
   const duplicateCount = useMemo(
@@ -338,6 +345,22 @@ export default function DevicesPage() {
             </button>
           );
         })}
+        {allTags.length > 0 && (
+          <>
+            <div className="w-px h-[18px] mx-1" style={{ background: 'var(--line)' }} />
+            <select
+              value={tagFilter ?? ''}
+              onChange={e => setTagFilter(e.target.value ? parseInt(e.target.value, 10) : null)}
+              className="mono text-[11px] px-[8px] py-[4px] rounded-[5px] transition-colors"
+              style={{ background: 'var(--surface-2)', color: 'var(--ink-3)', border: '1px solid var(--line)' }}
+            >
+              <option value="">All tags</option>
+              {allTags.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </>
+        )}
       </div>
 
       {/* Device table */}
@@ -411,6 +434,19 @@ export default function DevicesPage() {
                       </td>
                       <td className="px-4 py-[12px]">
                         <div className="text-[13px] font-medium" style={{ color: 'var(--ink)' }}>{device.name}</div>
+                        {device.tags && device.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {device.tags.map(tag => (
+                              <span
+                                key={tag.id}
+                                className="text-[10px] px-[5px] py-[1px] rounded-full font-medium"
+                                style={{ background: tag.color + '33', color: tag.color, border: `1px solid ${tag.color}55` }}
+                              >
+                                {tag.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-[12px]">
                         <TypePill type={device.device_type} />

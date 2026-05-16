@@ -291,6 +291,52 @@ CREATE TABLE IF NOT EXISTS credential_presets (
 );
 ALTER TABLE credential_presets ADD COLUMN IF NOT EXISTS allow_operator_use BOOLEAN NOT NULL DEFAULT TRUE;
 
+-- Maintenance windows — suppress alerts for planned downtime
+CREATE TABLE IF NOT EXISTS maintenance_windows (
+  id             SERIAL PRIMARY KEY,
+  name           VARCHAR(100) NOT NULL,
+  device_ids     INTEGER[] NOT NULL DEFAULT '{}',
+  start_at       TIMESTAMPTZ NOT NULL,
+  end_at         TIMESTAMPTZ NOT NULL,
+  recurring_cron VARCHAR(100),
+  active         BOOLEAN NOT NULL DEFAULT true,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_maintenance_windows_active ON maintenance_windows(active, start_at, end_at);
+
+-- Device tags
+CREATE TABLE IF NOT EXISTS tags (
+  id         SERIAL PRIMARY KEY,
+  name       VARCHAR(50) NOT NULL UNIQUE,
+  color      VARCHAR(20) NOT NULL DEFAULT '#6366f1',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS device_tags (
+  device_id INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  tag_id    INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (device_id, tag_id)
+);
+CREATE INDEX IF NOT EXISTS idx_device_tags_tag ON device_tags(tag_id);
+
+-- Audit log — records all write operations performed by authenticated users
+CREATE TABLE IF NOT EXISTS audit_log (
+  id           SERIAL PRIMARY KEY,
+  user_id      INTEGER,
+  username     VARCHAR(50),
+  method       VARCHAR(10) NOT NULL,
+  path         TEXT NOT NULL,
+  entity_type  VARCHAR(50),
+  entity_id    INTEGER,
+  summary      TEXT,
+  ip_address   VARCHAR(45),
+  status_code  INTEGER,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id, created_at DESC);
+
 -- Device availability (offline/online outage tracking)
 CREATE TABLE IF NOT EXISTS device_availability (
   id                  SERIAL PRIMARY KEY,

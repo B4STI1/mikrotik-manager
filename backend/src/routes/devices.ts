@@ -67,7 +67,23 @@ router.get('/', async (_req: Request, res: Response) => {
             rack_name, rack_slot, created_at
      FROM devices ORDER BY name ASC`
   );
-  res.json(devices);
+
+  // Attach tags to each device
+  const tagRows = await query<{ device_id: number; id: number; name: string; color: string }>(
+    `SELECT dt.device_id, t.id, t.name, t.color
+     FROM device_tags dt JOIN tags t ON t.id = dt.tag_id`
+  );
+  const tagsByDevice: Record<number, { id: number; name: string; color: string }[]> = {};
+  for (const t of tagRows) {
+    if (!tagsByDevice[t.device_id]) tagsByDevice[t.device_id] = [];
+    tagsByDevice[t.device_id].push({ id: t.id, name: t.name, color: t.color });
+  }
+  const result = (devices as { id: number }[]).map((d) => ({
+    ...d,
+    tags: tagsByDevice[d.id] ?? [],
+  }));
+
+  res.json(result);
 });
 
 // ─── Routers overview (router-type devices with route counts) ─────────────────

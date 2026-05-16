@@ -28,6 +28,9 @@ import { decrypt } from './utils/crypto';
 import { corsMiddlewareOptions, socketIoCorsOptions } from './utils/corsOrigins';
 
 import authRoutes from './routes/auth';
+import auditLogRoutes from './routes/auditLog';
+import tagsRoutes from './routes/tags';
+import maintenanceWindowsRoutes from './routes/maintenanceWindows';
 import devicesRoutes, { setPollerService as setDevicesPoller } from './routes/devices';
 import clientsRoutes, { setPollerService as setClientsPoller } from './routes/clients';
 import eventsRoutes from './routes/events';
@@ -43,6 +46,7 @@ import alertsRoutes from './routes/alerts';
 import wirelessRoutes from './routes/wireless';
 import networkServicesRoutes from './routes/networkServices';
 import credentialPresetsRoutes from './routes/credentialPresets';
+import { auditMiddleware } from './middleware/auditMiddleware';
 
 const app = express();
 // nginx sits exactly one hop in front; trust its X-Forwarded-For so req.ip is the real client IP
@@ -184,6 +188,7 @@ app.use(express.urlencoded({ extended: true }));
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
+app.use(auditMiddleware);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -207,6 +212,9 @@ app.use('/api/alerts', alertsRoutes);
 app.use('/api/wireless', wirelessRoutes);
 app.use('/api/network-services', networkServicesRoutes);
 app.use('/api/credential-presets', credentialPresetsRoutes);
+app.use('/api/audit-log', auditLogRoutes);
+app.use('/api/tags', tagsRoutes);
+app.use('/api/maintenance-windows', maintenanceWindowsRoutes);
 
 // ─── Error Handler ────────────────────────────────────────────────────────────
 app.use(errorHandler);

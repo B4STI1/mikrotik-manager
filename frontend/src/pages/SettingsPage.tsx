@@ -2,9 +2,10 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Settings, Users, Key, Plus, Trash2, CheckCircle, AlertCircle, Pencil, X,
-  ShieldCheck, ShieldAlert, RefreshCw, Upload, Lock, Bell, Send, KeyRound,
+  ShieldCheck, ShieldAlert, RefreshCw, Upload, Lock, Bell, Send, KeyRound, ClipboardList,
 } from 'lucide-react';
-import { settingsApi, authApi, certApi, alertsApi } from '../services/api';
+import { settingsApi, authApi, certApi, alertsApi, auditLogApi, tagsApi, maintenanceApi } from '../services/api';
+import type { MaintenanceWindow } from '../services/api';
 import type { CertInfo, AlertRule, AlertChannel } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
@@ -42,7 +43,12 @@ export default function SettingsPage() {
   const { theme, setTheme } = useThemeStore();
   const isAdmin = user?.role === 'admin';
   const canWrite = user?.role !== 'viewer';
-  const [activeTab, setActiveTab] = useState<'general' | 'users' | 'credentials' | 'security' | 'certificate' | 'alerting'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'users' | 'credentials' | 'security' | 'certificate' | 'alerting' | 'audit' | 'tags' | 'maintenance'>('general');
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditPage, setAuditPage] = useState(1);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#6366f1');
+  const [mwForm, setMwForm] = useState({ name: '', start_at: '', end_at: '' });
 
   // ─── App settings ─────────────────────────────────────────────────────────
   const { data: settings = {} } = useQuery({
@@ -186,6 +192,65 @@ export default function SettingsPage() {
       reader.readAsText(file);
     });
 
+  // ─── Tags ─────────────────────────────────────────────────────────────────
+  const { data: tags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => tagsApi.list().then((r) => r.data),
+    enabled: activeTab === 'tags',
+  });
+
+  const createTagMutation = useMutation({
+    mutationFn: () => tagsApi.create(newTagName.trim(), newTagColor),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      setNewTagName('');
+    },
+  });
+
+  const deleteTagMutation = useMutation({
+    mutationFn: (id: number) => tagsApi.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tags'] }),
+  });
+
+  // ─── Maintenance Windows ───────────────────────────────────────────────────
+  const { data: maintenanceWindows = [] } = useQuery({
+    queryKey: ['maintenance-windows'],
+    queryFn: () => maintenanceApi.list().then((r) => r.data),
+    enabled: activeTab === 'maintenance',
+  });
+
+  const createMwMutation = useMutation({
+    mutationFn: () => maintenanceApi.create({
+      name: mwForm.name.trim(),
+      device_ids: [],
+      start_at: mwForm.start_at,
+      end_at: mwForm.end_at,
+      recurring_cron: null,
+      active: true,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] });
+      setMwForm({ name: '', start_at: '', end_at: '' });
+    },
+  });
+
+  const deleteMwMutation = useMutation({
+    mutationFn: (id: number) => maintenanceApi.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] }),
+  });
+
+  const toggleMwMutation = useMutation({
+    mutationFn: ({ id, active }: { id: number; active: boolean }) => maintenanceApi.update(id, { active }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['maintenance-windows'] }),
+  });
+
+  // ─── Audit Log ────────────────────────────────────────────────────────────
+  const { data: auditData } = useQuery({
+    queryKey: ['audit-log', auditPage, auditSearch],
+    queryFn: () => auditLogApi.list({ page: auditPage, limit: 50, search: auditSearch || undefined }).then((r) => r.data),
+    enabled: activeTab === 'audit',
+  });
+
   // ─── Alerting ──────────────────────────────────────────────────────────────
   const { data: alertRules = [] } = useQuery({
     queryKey: ['alert-rules'],
@@ -284,6 +349,11 @@ export default function SettingsPage() {
     { key: 'security' as const, label: 'My Password', icon: Key },
     { key: 'certificate' as const, label: 'Certificate', icon: Lock },
     { key: 'alerting' as const, label: 'Alerting', icon: Bell },
+    ...(isAdmin ? [
+      { key: 'tags' as const, label: 'Tags', icon: ShieldCheck },
+      { key: 'maintenance' as const, label: 'Maintenance', icon: ShieldAlert },
+      { key: 'audit' as const, label: 'Audit Log', icon: ClipboardList },
+    ] : []),
   ];
 
   return (
@@ -1411,6 +1481,258 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ── Tags ── */}
+      {activeTab === 'tags' && (
+        <div className="space-y-4">
+          <div className="card p-5">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Device Tags</h3>
+            {isAdmin && (
+              <div className="flex items-center gap-2 mb-4">
+                <input
+                  type="color"
+                  value={newTagColor}
+                  onChange={(e) => setNewTagColor(e.target.value)}
+                  className="w-8 h-8 rounded cursor-pointer border border-gray-300 dark:border-slate-600 p-0.5"
+                />
+                <input
+                  type="text"
+                  placeholder="Tag name…"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && newTagName.trim() && createTagMutation.mutate()}
+                  className="input-field flex-1 text-sm"
+                />
+                <button
+                  onClick={() => createTagMutation.mutate()}
+                  disabled={!newTagName.trim() || createTagMutation.isPending}
+                  className="btn-primary text-sm px-3 py-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            <div className="space-y-2">
+              {tags.map((tag) => (
+                <div key={tag.id} className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--surface-2)' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-full" style={{ background: tag.color }} />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{tag.name}</span>
+                    <span className="text-xs text-gray-400 dark:text-slate-500">{tag.device_count} device{tag.device_count !== 1 ? 's' : ''}</span>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      onClick={() => deleteTagMutation.mutate(tag.id)}
+                      className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {tags.length === 0 && (
+                <p className="text-sm text-gray-400 dark:text-slate-500 text-center py-4">No tags created yet</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Maintenance Windows ── */}
+      {activeTab === 'maintenance' && (
+        <div className="space-y-4">
+          <div className="card p-5">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Maintenance Windows</h3>
+            <p className="text-xs text-gray-500 dark:text-slate-400 mb-4">
+              Alerts are suppressed for devices during active maintenance windows.
+            </p>
+
+            {isAdmin && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+                <input
+                  type="text"
+                  placeholder="Window name…"
+                  value={mwForm.name}
+                  onChange={(e) => setMwForm(f => ({ ...f, name: e.target.value }))}
+                  className="input-field text-sm"
+                />
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-500 dark:text-slate-400">Start</label>
+                  <input
+                    type="datetime-local"
+                    value={mwForm.start_at}
+                    onChange={(e) => setMwForm(f => ({ ...f, start_at: e.target.value }))}
+                    className="input-field text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-500 dark:text-slate-400">End</label>
+                  <input
+                    type="datetime-local"
+                    value={mwForm.end_at}
+                    onChange={(e) => setMwForm(f => ({ ...f, end_at: e.target.value }))}
+                    className="input-field text-sm"
+                  />
+                </div>
+                <button
+                  onClick={() => createMwMutation.mutate()}
+                  disabled={!mwForm.name.trim() || !mwForm.start_at || !mwForm.end_at || createMwMutation.isPending}
+                  className="btn-primary text-sm sm:col-span-3 justify-center flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Window
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {(maintenanceWindows as MaintenanceWindow[]).map((mw) => {
+                const now = new Date();
+                const start = new Date(mw.start_at);
+                const end = new Date(mw.end_at);
+                const isActive = mw.active && now >= start && now <= end;
+                const isPast = now > end;
+                return (
+                  <div key={mw.id} className={clsx(
+                    'flex items-center justify-between p-3 rounded-lg',
+                    isActive ? 'border border-yellow-400 dark:border-yellow-600' : ''
+                  )} style={{ background: 'var(--surface-2)' }}>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">{mw.name}</span>
+                        {isActive && <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">Active</span>}
+                        {isPast && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-slate-700 dark:text-slate-400">Expired</span>}
+                        {!mw.active && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 dark:bg-slate-700 dark:text-slate-500">Disabled</span>}
+                      </div>
+                      <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+                        {new Date(mw.start_at).toLocaleString()} – {new Date(mw.end_at).toLocaleString()}
+                        {mw.device_ids.length > 0 && ` · ${mw.device_ids.length} device(s)`}
+                      </div>
+                    </div>
+                    {isAdmin && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => toggleMwMutation.mutate({ id: mw.id, active: !mw.active })}
+                          className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-slate-600 text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300"
+                        >
+                          {mw.active ? 'Disable' : 'Enable'}
+                        </button>
+                        <button
+                          onClick={() => deleteMwMutation.mutate(mw.id)}
+                          className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {(maintenanceWindows as MaintenanceWindow[]).length === 0 && (
+                <p className="text-sm text-gray-400 dark:text-slate-500 text-center py-4">No maintenance windows created</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Audit Log ── */}
+      {activeTab === 'audit' && (
+        <div className="space-y-4">
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-blue-500" />
+                Audit Log
+              </h3>
+              <input
+                type="text"
+                placeholder="Search user, path, IP…"
+                value={auditSearch}
+                onChange={(e) => { setAuditSearch(e.target.value); setAuditPage(1); }}
+                className="input-field w-64 text-sm"
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500 dark:text-slate-400 border-b border-gray-200 dark:border-slate-700">
+                    <th className="pb-2 pr-4">Time</th>
+                    <th className="pb-2 pr-4">User</th>
+                    <th className="pb-2 pr-4">Action</th>
+                    <th className="pb-2 pr-4">Entity</th>
+                    <th className="pb-2 pr-4">Status</th>
+                    <th className="pb-2">IP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(auditData?.rows ?? []).map((row) => (
+                    <tr key={row.id} className="border-b border-gray-100 dark:border-slate-700/50">
+                      <td className="py-2 pr-4 font-mono text-xs text-gray-400 whitespace-nowrap">
+                        {new Date(row.created_at).toLocaleString()}
+                      </td>
+                      <td className="py-2 pr-4 font-medium">{row.username ?? '—'}</td>
+                      <td className="py-2 pr-4 font-mono text-xs">
+                        <span className={clsx(
+                          'px-1.5 py-0.5 rounded text-xs font-semibold mr-2',
+                          row.method === 'DELETE' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                          row.method === 'POST' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                          'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                        )}>
+                          {row.method}
+                        </span>
+                        <span className="text-gray-500 dark:text-slate-400 truncate max-w-[200px] inline-block align-bottom" title={row.path}>{row.path}</span>
+                      </td>
+                      <td className="py-2 pr-4 text-gray-500 dark:text-slate-400">
+                        {row.entity_type ? (row.entity_id ? `${row.entity_type}#${row.entity_id}` : row.entity_type) : '—'}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <span className={clsx(
+                          'px-1.5 py-0.5 rounded text-xs font-semibold',
+                          (row.status_code ?? 200) < 300 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                          (row.status_code ?? 200) < 500 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                          'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        )}>
+                          {row.status_code ?? '—'}
+                        </span>
+                      </td>
+                      <td className="py-2 font-mono text-xs text-gray-400">{row.ip_address ?? '—'}</td>
+                    </tr>
+                  ))}
+                  {(auditData?.rows ?? []).length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-gray-400 dark:text-slate-500">
+                        No audit log entries yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {(auditData?.total ?? 0) > 50 && (
+              <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-slate-400">
+                <span>{auditData?.total} total entries</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                    disabled={auditPage <= 1}
+                    className="btn-secondary text-xs px-3 py-1 disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <span className="px-2 py-1">Page {auditPage}</span>
+                  <button
+                    onClick={() => setAuditPage((p) => p + 1)}
+                    disabled={auditPage * 50 >= (auditData?.total ?? 0)}
+                    className="btn-secondary text-xs px-3 py-1 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

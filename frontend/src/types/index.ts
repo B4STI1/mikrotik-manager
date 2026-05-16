@@ -69,6 +69,14 @@ export interface Device {
   rack_slot?: string;
   created_at: string;
   updated_at?: string;
+  tags?: { id: number; name: string; color: string }[];
+}
+
+export interface Tag {
+  id: number;
+  name: string;
+  color: string;
+  device_count?: number;
 }
 
 export interface Interface {
