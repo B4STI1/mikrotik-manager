@@ -47,6 +47,7 @@ import configTemplatesRoutes from './routes/configTemplates';
 import wirelessRoutes from './routes/wireless';
 import networkServicesRoutes from './routes/networkServices';
 import credentialPresetsRoutes from './routes/credentialPresets';
+import systemRoutes from './routes/system';
 import { auditMiddleware } from './middleware/auditMiddleware';
 
 const app = express();
@@ -217,6 +218,7 @@ app.use('/api/audit-log', auditLogRoutes);
 app.use('/api/tags', tagsRoutes);
 app.use('/api/maintenance-windows', maintenanceWindowsRoutes);
 app.use('/api/config-templates', configTemplatesRoutes);
+app.use('/api/system', systemRoutes);
 
 // ─── Error Handler ────────────────────────────────────────────────────────────
 app.use(errorHandler);

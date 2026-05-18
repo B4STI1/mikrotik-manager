@@ -343,6 +343,12 @@ export const deviceToolsApi = {
     ),
 };
 
+// ─── System ───────────────────────────────────────────────────────────────────
+export const systemApi = {
+  versionCheck: () =>
+    api.get<{ current: string; latest: string | null; update_available: boolean }>('/system/version-check'),
+};
+
 // ─── Events ───────────────────────────────────────────────────────────────────
 export const eventsApi = {
   list: (params?: {
