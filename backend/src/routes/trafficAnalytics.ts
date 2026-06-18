@@ -45,20 +45,27 @@ router.get('/timeseries', async (req: Request, res: Response) => {
     from(bucket: "${bucket}")
       |> range(start: -${range})
       |> filter(fn: (r) => r._measurement == "client_traffic")
-      |> filter(fn: (r) => r._field == "bytes")
-      |> group(columns: ["direction"])
+      |> filter(fn: (r) => r._field == "bytes" or r._field == "packets")
+      |> group(columns: ["direction", "_field"])
       |> aggregateWindow(every: ${every}, fn: sum, createEmpty: false)
   `;
 
-  const pivoted: Record<string, { time: string; upload: number; download: number }> = {};
+  type Point = { time: string; upload: number; download: number; uploadPackets: number; downloadPackets: number };
+  const pivoted: Record<string, Point> = {};
   try {
     await queryApi.collectRows(fluxQuery, (row, tableMeta) => {
       const time = tableMeta.get(row, '_time') as string;
       const direction = tableMeta.get(row, 'direction') as string;
+      const field = tableMeta.get(row, '_field') as string;
       const value = Number(tableMeta.get(row, '_value')) || 0;
-      if (!pivoted[time]) pivoted[time] = { time, upload: 0, download: 0 };
-      if (direction === 'upload') pivoted[time].upload += value;
-      else if (direction === 'download') pivoted[time].download += value;
+      if (!pivoted[time]) pivoted[time] = { time, upload: 0, download: 0, uploadPackets: 0, downloadPackets: 0 };
+      if (field === 'packets') {
+        if (direction === 'upload') pivoted[time].uploadPackets += value;
+        else if (direction === 'download') pivoted[time].downloadPackets += value;
+      } else {
+        if (direction === 'upload') pivoted[time].upload += value;
+        else if (direction === 'download') pivoted[time].download += value;
+      }
     });
   } catch {
     // No data yet
@@ -149,24 +156,31 @@ router.get('/apps', async (req: Request, res: Response) => {
     from(bucket: "${bucket}")
       |> range(start: -${range})
       |> filter(fn: (r) => r._measurement == "client_traffic")
-      |> filter(fn: (r) => r._field == "bytes")
+      |> filter(fn: (r) => r._field == "bytes" or r._field == "packets")
       ${macFilter}
-      |> group(columns: ["app"])
+      |> group(columns: ["app", "_field"])
       |> sum()
   `;
 
-  const apps: { app: string; bytes: number }[] = [];
+  const byApp = new Map<string, { bytes: number; packets: number }>();
   try {
     await queryApi.collectRows(fluxQuery, (row, tableMeta) => {
-      apps.push({
-        app: tableMeta.get(row, 'app') as string,
-        bytes: Number(tableMeta.get(row, '_value')) || 0,
-      });
+      const app = tableMeta.get(row, 'app') as string;
+      const field = tableMeta.get(row, '_field') as string;
+      const value = Number(tableMeta.get(row, '_value')) || 0;
+      let entry = byApp.get(app);
+      if (!entry) {
+        entry = { bytes: 0, packets: 0 };
+        byApp.set(app, entry);
+      }
+      if (field === 'packets') entry.packets += value;
+      else entry.bytes += value;
     });
   } catch {
     // No data yet
   }
 
+  const apps = Array.from(byApp.entries()).map(([app, e]) => ({ app, bytes: e.bytes, packets: e.packets }));
   res.json(apps.sort((a, b) => b.bytes - a.bytes));
 });
 
@@ -206,23 +220,30 @@ router.get('/client/:mac', async (req: Request, res: Response) => {
     from(bucket: "${bucket}")
       |> range(start: -${range})
       |> filter(fn: (r) => r._measurement == "client_traffic")
-      |> filter(fn: (r) => r._field == "bytes")
+      |> filter(fn: (r) => r._field == "bytes" or r._field == "packets")
       |> filter(fn: (r) => r.mac == "${mac}")
-      |> group(columns: ["app"])
+      |> group(columns: ["app", "_field"])
       |> sum()
   `;
 
-  const apps: { app: string; bytes: number }[] = [];
+  const byApp = new Map<string, { bytes: number; packets: number }>();
   try {
     await queryApi.collectRows(appsFlux, (row, tableMeta) => {
-      apps.push({
-        app: tableMeta.get(row, 'app') as string,
-        bytes: Number(tableMeta.get(row, '_value')) || 0,
-      });
+      const app = tableMeta.get(row, 'app') as string;
+      const field = tableMeta.get(row, '_field') as string;
+      const value = Number(tableMeta.get(row, '_value')) || 0;
+      let entry = byApp.get(app);
+      if (!entry) {
+        entry = { bytes: 0, packets: 0 };
+        byApp.set(app, entry);
+      }
+      if (field === 'packets') entry.packets += value;
+      else entry.bytes += value;
     });
   } catch {
     // No data yet
   }
+  const apps = Array.from(byApp.entries()).map(([app, e]) => ({ app, bytes: e.bytes, packets: e.packets }));
 
   res.json({
     series: Object.values(pivoted).sort((a, b) => a.time.localeCompare(b.time)),

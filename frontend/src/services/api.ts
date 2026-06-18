@@ -849,7 +849,7 @@ export interface NetflowDeviceState {
 
 // ─── Traffic Analytics (NetFlow) ──────────────────────────────────────────────
 
-export interface ClientTrafficPoint { time: string; upload: number; download: number }
+export interface ClientTrafficPoint { time: string; upload: number; download: number; uploadPackets?: number; downloadPackets?: number }
 export interface TrafficTopClient {
   mac: string;
   upload_bytes: number;
@@ -860,7 +860,7 @@ export interface TrafficTopClient {
   vendor: string | null;
   ip_address: string | null;
 }
-export interface TrafficApp { app: string; bytes: number }
+export interface TrafficApp { app: string; bytes: number; packets?: number }
 export interface TrafficCollectorStats {
   listening: boolean;
   port: number;
