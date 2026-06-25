@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { wirelessApi } from '../services/api';
 import type { WirelessAP } from '../types';
+import RfHealth from '../components/wireless/RfHealth';
 import clsx from 'clsx';
 
 function timeAgo(ts: string | undefined): string {
@@ -96,6 +97,9 @@ export default function WirelessPage() {
           </div>
         ))}
       </div>
+
+      {/* RF Health — channel map, density, TX retries, connectivity */}
+      {aps.length > 0 && <RfHealth />}
 
       {/* AP table */}
       <div className="card overflow-hidden">

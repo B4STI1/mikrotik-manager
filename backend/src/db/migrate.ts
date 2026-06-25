@@ -160,6 +160,9 @@ CREATE TABLE IF NOT EXISTS app_settings (
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS vendor VARCHAR(255);
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS vlan_id INTEGER;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS custom_name VARCHAR(255);
+-- first_seen: when this client was first discovered ("connected since"); set once, preserved across polls
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS first_seen TIMESTAMPTZ;
+UPDATE clients SET first_seen = last_seen WHERE first_seen IS NULL;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS log_id VARCHAR(20);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_device_log_id ON events(device_id, log_id);
 ALTER TABLE topology_links ADD COLUMN IF NOT EXISTS neighbor_mac VARCHAR(17);

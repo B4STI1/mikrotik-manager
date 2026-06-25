@@ -569,6 +569,66 @@ router.get('/:id/ports/:name/monitor', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/devices/:id/ports/:name/clients — clients on this port.
+//
+// The bridge FDB lists every MAC *reachable through* a port, so on an
+// uplink/trunk it shows the whole network. We classify the port and, by
+// default, only return clients that are genuinely *physically* connected
+// (a single access VLAN, no infra neighbour, not an aggregation point).
+// Pass ?all=true to get the raw FDB list regardless (the "view MAC table"
+// disclosure in the UI).
+const UPLINK_MAC_THRESHOLD = 8;
+router.get('/:id/ports/:name/clients', async (req: Request, res: Response) => {
+  const all = req.query.all === 'true';
+  const rows = await query<{
+    mac_address: string; hostname: string | null; custom_name: string | null;
+    vendor: string | null; ip_address: string | null; client_type: string;
+    vlan_id: number | null; signal_strength: number | null;
+    first_seen: string | null; last_seen: string | null;
+  }>(`
+    SELECT mac_address, hostname, custom_name, vendor, ip_address, client_type,
+           vlan_id, signal_strength, first_seen, last_seen
+    FROM clients
+    WHERE device_id = $1 AND interface_name = $2 AND active = TRUE
+    ORDER BY COALESCE(NULLIF(custom_name, ''), hostname, mac_address) ASC
+  `, [req.params.id, req.params.name]);
+
+  // A discovered LLDP/MNDP neighbour on this interface means it links to
+  // another managed device → definitively an uplink.
+  const neighbor = await queryOne<{ neighbor_identity: string | null; neighbor_platform: string | null }>(
+    `SELECT neighbor_identity, neighbor_platform FROM topology_links
+     WHERE from_device_id = $1 AND from_interface = $2
+     ORDER BY (neighbor_identity IS NOT NULL) DESC LIMIT 1`,
+    [req.params.id, req.params.name]
+  );
+
+  const macCount = rows.length;
+  const vlanCount = new Set(rows.filter(r => r.vlan_id != null).map(r => r.vlan_id)).size;
+
+  let classification: 'access' | 'uplink' = 'access';
+  let reason = '';
+  if (neighbor) {
+    classification = 'uplink';
+    reason = `Links to ${neighbor.neighbor_identity || 'another device'}`;
+  } else if (vlanCount > 1) {
+    classification = 'uplink';
+    reason = `MACs seen across ${vlanCount} VLANs — carrying tagged/trunk traffic`;
+  } else if (macCount > UPLINK_MAC_THRESHOLD) {
+    classification = 'uplink';
+    reason = `${macCount} MAC addresses reachable through this port`;
+  }
+
+  res.json({
+    classification,
+    reason,
+    mac_count: macCount,
+    vlan_count: vlanCount,
+    neighbor: neighbor || null,
+    // Physically-connected view hides everything on an uplink; ?all=true returns the raw FDB.
+    clients: all || classification === 'access' ? rows : [],
+  });
+});
+
 // GET /api/devices/:id/ports (switch port layout with VLAN info)
 router.get('/:id/ports', async (req: Request, res: Response) => {
   const [ifaces, bridgePorts, vlans] = await Promise.all([

@@ -2,7 +2,7 @@
 
 A self-hosted, full-stack network management platform for MikroTik devices. Monitor, configure, and manage your entire MikroTik infrastructure — routers, switches, and wireless access points — from a single web interface.
 
-![Version](https://img.shields.io/badge/version-0.16.0_Beta-blue)
+![Version](https://img.shields.io/badge/version-0.16.1_Beta-blue)
 ![License](https://img.shields.io/badge/license-AGPLv3-blue)
 ![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white)
@@ -134,6 +134,7 @@ A Meraki/UniFi-grade firewall experience built on the full RouterOS feature set:
 - VLAN management (create, edit, delete VLANs)
 - Per-port configuration and VLAN membership
 - Switch overview with port status
+- **Per-port connected clients** — selecting a port shows the clients actually connected to it (hostname, MAC, IP, VLAN, connection time) with links to each client's page. Crucially, it distinguishes *physically connected* clients from the raw MAC table: **uplink/trunk ports are auto-detected** (via an LLDP/MNDP topology neighbor, MACs spanning multiple VLANs, or a high MAC count) and show an "uplink" explainer instead of every MAC reachable through the port — with a one-click disclosure to view the full MAC table when you need it
 - **Copy VLANs from another switch** — 3-step wizard that copies VLAN IDs and names from any other managed switch onto the current device, with manual per-VLAN port assignment (tagged/untagged) using a click-to-cycle interface chip grid, conflict detection with per-VLAN skip/overwrite control, and a review summary before any changes are applied
 
 ### Wireless
@@ -145,6 +146,11 @@ A Meraki/UniFi-grade firewall experience built on the full RouterOS feature set:
 - Scheduled and on-demand **AP scans** (nearby access point discovery)
 - Real-time radio monitoring
 - Wireless client tracking with vendor lookup
+- **RF Health** (fleet-wide on the Wireless page and per-AP on the Radios tab):
+  - **Channel usage map** across 2.4 / 5 / 6 GHz, computed from each radio's operating channel (live-resolved from `monitor` on the wifi package when channels are auto), highlighting in-use channels and **co-channel overlap**
+  - **AP deployment density** — connected clients plotted across the −90…−30 dBm signal scale, with a coverage-gap warning when too many clients connect at weak RSSI
+  - **AP radio TX retries** histogram (0%→35%+) with a band selector, derived from per-client CCQ (legacy `wireless` driver)
+  - **WiFi connectivity success** funnel (Association / Authentication / DHCP) derived from device logs
 
 ### Network Services
 Each service supports multi-device management with conflict detection:

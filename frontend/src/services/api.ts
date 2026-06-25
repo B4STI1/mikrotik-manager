@@ -225,6 +225,8 @@ export const devicesApi = {
   reboot: (id: number) => api.post<{ message: string }>(`/devices/${id}/reboot`),
   getPortMonitor: (id: number, name: string) =>
     api.get<PortMonitorData>(`/devices/${id}/ports/${encodeURIComponent(name)}/monitor`),
+  getPortClients: (id: number, name: string, all = false) =>
+    api.get<import('../types').PortClientsResult>(`/devices/${id}/ports/${encodeURIComponent(name)}/clients`, { params: { all: all || undefined } }),
   createBond: (id: number, data: {
     name: string; mode: string; slaves: string[];
     lacp_rate?: string; transmit_hash_policy?: string; mtu?: number; min_links?: number;
@@ -721,6 +723,16 @@ export const wirelessApi = {
   runAPScan:         (apId: number) => api.post(`/wireless/${apId}/ap-scan`),
   getAPScanHistory:  (apId: number, limit = 5) =>
     api.get(`/wireless/${apId}/ap-scan-history`, { params: { limit } }),
+
+  // RF Health (fleet-wide, or scoped to one AP via deviceId)
+  getChannelUsage: (deviceId?: number) =>
+    api.get<import('../types').RfChannelRow[]>('/wireless/rf/channels', { params: { deviceId } }),
+  getClientSignals: (deviceId?: number) =>
+    api.get<import('../types').RfSignalRow[]>('/wireless/rf/signals', { params: { deviceId } }),
+  getTxQuality: (deviceId?: number, range = '6h') =>
+    api.get<import('../types').RfTxQualityRow[]>('/wireless/rf/tx-quality', { params: { deviceId, range } }),
+  getConnectivity: (deviceId?: number, range = '24h') =>
+    api.get<import('../types').RfConnectivity>('/wireless/rf/connectivity', { params: { deviceId, range } }),
 };
 
 // ─── Network Services ─────────────────────────────────────────────────────────

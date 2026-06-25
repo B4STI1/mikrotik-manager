@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { wirelessApi } from '../../services/api';
 import { useCanWrite } from '../../hooks/useCanWrite';
+import RfHealth from '../wireless/RfHealth';
 import type { WirelessInterface, WirelessMetricPoint } from '../../types';
 import clsx from 'clsx';
 import { format } from 'date-fns';
@@ -1101,6 +1102,15 @@ export default function RadiosTab({ deviceId, deviceStatus }: Props) {
             );
           })}
         </div>
+      </div>
+
+      {/* RF Health — channel map, client density, TX retries, connectivity */}
+      <div>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-3">
+          <Signal className="w-4 h-4 text-blue-500" />
+          RF Health
+        </h2>
+        <RfHealth deviceId={deviceId} />
       </div>
 
       {/* Performance Charts */}

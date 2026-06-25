@@ -30,6 +30,36 @@ function topologyNeighborOversized(
   return value.length > limit ? { limit, len: value.length } : null;
 }
 
+/** Normalise a RouterOS band string + frequency (MHz) to a coarse RF band tag. */
+function rfBand(band: string | undefined, frequency: number): '2.4' | '5' | '6' | 'unknown' {
+  const b = (band || '').toLowerCase();
+  if (b.includes('6ghz') || (frequency >= 5925 && frequency <= 7125)) return '6';
+  if (b.includes('5ghz') || (frequency >= 4900 && frequency < 5925)) return '5';
+  if (b.includes('2ghz') || (frequency >= 2400 && frequency < 2500)) return '2.4';
+  return 'unknown';
+}
+
+/** A coarse RF band tag → the RouterOS-style band prefix we store for display. */
+function bandPrefix(frequency: number): string | null {
+  const b = rfBand(undefined, frequency);
+  return b === '2.4' ? '2ghz' : b === '5' ? '5ghz' : b === '6' ? '6ghz' : null;
+}
+
+/**
+ * Parse the new wifi package's monitor "channel" string into frequency + width.
+ * Format: "<freq>/<phy>[/<control-positions>]" e.g. "2412/ax/Ce", "5180/ax/Ceee".
+ * The control-position letters encode width: 1→20, 2→40, 4→80, 8→160 MHz.
+ */
+function parseWifiMonitorChannel(channel: string): { frequency: number; width: string } | null {
+  if (!channel) return null;
+  const segs = channel.split('/');
+  const frequency = parseInt(segs[0], 10);
+  if (!frequency || isNaN(frequency)) return null;
+  const letters = (segs[2] || '').replace(/[^a-zA-Z]/g, '').length;
+  const width = letters >= 8 ? '160mhz' : letters >= 4 ? '80mhz' : letters >= 2 ? '40mhz' : '20mhz';
+  return { frequency, width };
+}
+
 export interface DeviceRow {
   id: number;
   name: string;
@@ -513,8 +543,8 @@ export class DeviceCollector {
         const vlanId = entry?.vid ?? null;
 
         await query(
-          `INSERT INTO clients (device_id, mac_address, hostname, ip_address, interface_name, vlan_id, tx_bytes, rx_bytes, signal_strength, client_type, active, last_seen)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,NOW())
+          `INSERT INTO clients (device_id, mac_address, hostname, ip_address, interface_name, vlan_id, tx_bytes, rx_bytes, signal_strength, client_type, active, last_seen, first_seen)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,NOW(),NOW())
            ON CONFLICT (device_id, mac_address) DO UPDATE SET
              hostname=COALESCE($3, clients.hostname),
              ip_address=COALESCE(NULLIF($4,''), clients.ip_address),
@@ -525,7 +555,8 @@ export class DeviceCollector {
              signal_strength=$9,
              client_type=$10,
              active=TRUE,
-             last_seen=NOW()`,
+             last_seen=NOW(),
+             first_seen=COALESCE(clients.first_seen, NOW())`,
           [
             this.device.id,
             mac,
@@ -1269,12 +1300,35 @@ export class DeviceCollector {
       const wlans = pkg === 'wifi' ? rawList.map(r => this.normalizeWifiInterface(r)) : rawList;
       if (wlans.length === 0) return;
 
+      // New wifi package: the configured channel is usually "auto", so
+      // /interface/wifi/print returns no frequency. Pull the live operating
+      // channel from monitor for each physical radio; virtual APs inherit their
+      // master's channel. (Legacy "wireless" print already includes frequency.)
+      const liveFreq: Record<string, number> = {};
+      const liveWidth: Record<string, string> = {};
+      if (pkg === 'wifi') {
+        const physical = wlans.filter(w => w['name'] && !w['master-interface']);
+        await Promise.all(physical.map(async (w) => {
+          const rname = w['name'];
+          try {
+            const mon = await this.client.execute('/interface/wifi/monitor', { '.id': rname, once: '' });
+            const parsed = parseWifiMonitorChannel(mon[0]?.['channel'] || '');
+            if (parsed) { liveFreq[rname] = parsed.frequency; liveWidth[rname] = parsed.width; }
+          } catch { /* ignore per-radio monitor failures */ }
+        }));
+      }
+
       for (const wlan of wlans) {
         const name = wlan['name'];
         if (!name) continue;
-        const freq  = parseInt(wlan['frequency'] || '0', 10);
+        const master = wlan['master-interface'];
+        const liveF = liveFreq[name] ?? (master ? liveFreq[master] : undefined);
+        const liveW = liveWidth[name] ?? (master ? liveWidth[master] : undefined);
+        const freq  = liveF ?? parseInt(wlan['frequency'] || '0', 10);
         const txPow = parseInt(wlan['tx-power'] || '0', 10);
         const gain  = parseInt(wlan['antenna-gain'] || '0', 10);
+        const bandStr = wlan['band'] || (liveF ? bandPrefix(liveF) : null);
+        const widthStr = wlan['channel-width'] || liveW || null;
 
         await query(
           `INSERT INTO wireless_interfaces
@@ -1291,9 +1345,9 @@ export class DeviceCollector {
             this.device.id, name,
             wlan['ssid'] || null,
             wlan['mode'] || null,
-            wlan['band'] || null,
+            bandStr || null,
             !isNaN(freq) && freq > 0 ? freq : null,
-            wlan['channel-width'] || null,
+            widthStr,
             !isNaN(txPow) && txPow > 0 ? txPow : null,
             wlan['tx-power-mode'] || null,
             !isNaN(gain) ? gain : null,
@@ -1332,9 +1386,24 @@ export class DeviceCollector {
       if (wlans.length === 0) return;
 
       const clientsByIface: Record<string, number> = {};
+      // Per-radio transmit link quality. Legacy "wireless" registration tables
+      // expose tx-ccq (0-100, higher = better); we derive a retry % as 100-CCQ
+      // and average it per radio. The new "wifi" package omits CCQ, so this is
+      // simply left empty there (the quality panel shows a clean empty state).
+      const ccqSumByIface: Record<string, number> = {};
+      const ccqCountByIface: Record<string, number> = {};
       for (const r of regTable) {
         const iface = r['interface'];
-        if (iface) clientsByIface[iface] = (clientsByIface[iface] || 0) + 1;
+        if (!iface) continue;
+        clientsByIface[iface] = (clientsByIface[iface] || 0) + 1;
+        const ccqRaw = r['tx-ccq'];
+        if (ccqRaw != null && ccqRaw !== '') {
+          const ccq = parseInt(ccqRaw, 10);
+          if (!isNaN(ccq)) {
+            ccqSumByIface[iface]   = (ccqSumByIface[iface]   || 0) + ccq;
+            ccqCountByIface[iface] = (ccqCountByIface[iface] || 0) + 1;
+          }
+        }
       }
 
       const writeApi = getWriteApi();
@@ -1356,6 +1425,23 @@ export class DeviceCollector {
           point.intField('noise_floor', noiseFloor);
         }
         writeApi.writePoint(point);
+
+        // Per-radio TX retry % time series (only when CCQ data is available)
+        const ccqCount = ccqCountByIface[name] || 0;
+        if (ccqCount > 0) {
+          const avgCcq = ccqSumByIface[name] / ccqCount;
+          const retryPct = Math.max(0, Math.min(100, 100 - avgCcq));
+          writeApi.writePoint(
+            new Point('wireless_radio_quality')
+              .tag('device_id', String(this.device.id))
+              .tag('device_name', this.device.name)
+              .tag('interface', name)
+              .tag('band', rfBand(wlan['band'], parseInt(wlan['frequency'] || '0', 10)))
+              .floatField('tx_retry_pct', Math.round(retryPct * 10) / 10)
+              .intField('avg_ccq', Math.round(avgCcq))
+              .timestamp(new Date())
+          );
+        }
 
         await query(
           `UPDATE wireless_interfaces SET registered_clients=$1, updated_at=NOW()

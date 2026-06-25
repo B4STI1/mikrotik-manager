@@ -118,6 +118,28 @@ export interface SwitchPort extends Interface {
   bridgeInfo?: BridgeVlanEntry | null;
 }
 
+export interface PortClient {
+  mac_address: string;
+  hostname: string | null;
+  custom_name: string | null;
+  vendor: string | null;
+  ip_address: string | null;
+  client_type: string;
+  vlan_id: number | null;
+  signal_strength: number | null;
+  first_seen: string | null;
+  last_seen: string | null;
+}
+
+export interface PortClientsResult {
+  classification: 'access' | 'uplink';
+  reason: string;
+  mac_count: number;
+  vlan_count: number;
+  neighbor: { neighbor_identity: string | null; neighbor_platform: string | null } | null;
+  clients: PortClient[];
+}
+
 export interface PortMonitorData {
   // Link state
   status?: string;
@@ -340,6 +362,52 @@ export interface WirelessMetricPoint {
   ssid?: string;
   registered_clients?: number;
   noise_floor?: number;
+}
+
+// ─── RF Health ──────────────────────────────────────────────────────────────
+
+export interface RfChannelRow {
+  device_id: number;
+  device_name: string;
+  name: string;
+  ssid?: string;
+  band?: string;
+  frequency: number;
+  channel_width?: string;
+  registered_clients: number;
+}
+
+export interface RfSignalRow {
+  mac_address: string;
+  signal_strength: number;
+  device_id: number;
+  device_name: string;
+  custom_name?: string | null;
+  hostname?: string | null;
+}
+
+export interface RfTxQualityRow {
+  device_id: string;
+  device_name?: string;
+  interface: string;
+  band: string;
+  tx_retry_pct: number;
+}
+
+export interface RfConnectivityStage {
+  success: number;
+  failure: number;
+  pct: number | null;
+}
+
+export interface RfConnectivity {
+  range: string;
+  log_derived: boolean;
+  stages: {
+    association: RfConnectivityStage;
+    authentication: RfConnectivityStage;
+    dhcp: RfConnectivityStage;
+  };
 }
 
 export interface ConfigSnapshotMeta {

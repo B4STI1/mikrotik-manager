@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, X, Check, AlertCircle, Activity, Cpu, Link2, Trash2, Plus, Network } from 'lucide-react';
+import { RefreshCw, X, Check, AlertCircle, Activity, Cpu, Link2, Trash2, Plus, Network, Users, Wifi } from 'lucide-react';
 import { devicesApi, metricsApi } from '../../services/api';
 import { useCanWrite } from '../../hooks/useCanWrite';
-import type { SwitchPort, Vlan, TrafficPoint, PortMonitorData } from '../../types';
+import type { SwitchPort, Vlan, TrafficPoint, PortMonitorData, PortClient } from '../../types';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from 'recharts';
+import { formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
 
 interface Props {
@@ -448,6 +450,136 @@ function PortInfoCard({ deviceId, portName }: { deviceId: number; portName: stri
             {infoRow('Cable (SM)', d['sfp-link-length-singlemode'] ? `${d['sfp-link-length-singlemode']} km` : undefined)}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// Table of client rows, reused for the connected list and the "view MAC table" disclosure.
+function PortClientRows({ clients }: { clients: PortClient[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/40">
+            <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide">Host / Vendor</th>
+            <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide">MAC</th>
+            <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide">IP</th>
+            <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide">VLAN</th>
+            <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide">Connected</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 dark:divide-slate-700/50">
+          {clients.map((c, i) => {
+            const name = c.custom_name || c.hostname;
+            return (
+              <tr key={c.mac_address}
+                className={clsx('transition-colors hover:bg-blue-50/40 dark:hover:bg-slate-700/30',
+                  i % 2 === 0 ? 'bg-white dark:bg-slate-900/20' : 'bg-gray-50 dark:bg-slate-800/40')}>
+                <td className="px-4 py-2.5">
+                  <Link to={`/clients/${encodeURIComponent(c.mac_address)}`}
+                    className="font-medium text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1.5">
+                    {c.client_type === 'wireless' && <Wifi className="w-3 h-3 flex-shrink-0" />}
+                    {name || <span className="text-gray-400 dark:text-slate-500 italic">No hostname</span>}
+                  </Link>
+                  {c.vendor && <div className="text-xs text-gray-400 dark:text-slate-500 truncate">{c.vendor}</div>}
+                </td>
+                <td className="px-4 py-2.5 font-mono text-xs text-gray-600 dark:text-slate-400">{c.mac_address}</td>
+                <td className="px-4 py-2.5 font-mono text-xs text-gray-600 dark:text-slate-400">{c.ip_address || '—'}</td>
+                <td className="px-4 py-2.5 text-xs text-gray-500 dark:text-slate-400">
+                  {c.vlan_id != null
+                    ? <span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded font-mono">{c.vlan_id}</span>
+                    : '—'}
+                </td>
+                <td className="px-4 py-2.5 text-right text-xs text-gray-500 dark:text-slate-400"
+                  title={c.first_seen ? new Date(c.first_seen).toLocaleString() : undefined}>
+                  {c.first_seen ? formatDistanceToNow(new Date(c.first_seen), { addSuffix: false }) : '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Clients on a single port. The bridge FDB lists every MAC reachable *through*
+// a port, so on an uplink/trunk that's the whole network — not what's physically
+// plugged in. We classify the port and only show genuinely-connected clients by
+// default, with a disclosure to view the full MAC table.
+function PortClientsCard({ deviceId, portName }: { deviceId: number; portName: string }) {
+  const [showMacTable, setShowMacTable] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['port-clients', deviceId, portName],
+    queryFn: () => devicesApi.getPortClients(deviceId, portName).then((r) => r.data),
+    refetchInterval: 30_000,
+  });
+
+  const { data: macTable } = useQuery({
+    queryKey: ['port-clients-all', deviceId, portName],
+    queryFn: () => devicesApi.getPortClients(deviceId, portName, true).then((r) => r.data),
+    enabled: showMacTable,
+  });
+
+  const isUplink = data?.classification === 'uplink';
+  const connected = data?.clients ?? [];
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-200 dark:border-slate-700 flex items-center gap-2">
+        <Users className="w-4 h-4 text-blue-500" />
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+          Connected Clients
+          <span className="ml-2 text-xs font-normal text-gray-400 dark:text-slate-500 font-mono">{portName}</span>
+        </h3>
+        {!isLoading && !isUplink && (
+          <span className="ml-auto text-xs text-gray-400 dark:text-slate-500">
+            {connected.length} device{connected.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="p-6 text-center text-sm text-gray-400 dark:text-slate-500">
+          <RefreshCw className="w-4 h-4 animate-spin inline mr-1" />Loading…
+        </div>
+      ) : isUplink ? (
+        <div className="p-5 space-y-3">
+          <div className="flex items-start gap-2.5">
+            <Link2 className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <div className="font-medium text-gray-800 dark:text-slate-200">This looks like an uplink / trunk port</div>
+              <p className="text-gray-500 dark:text-slate-400 mt-0.5">
+                {data?.reason}. The {data?.mac_count} MAC address{data?.mac_count !== 1 ? 'es' : ''} learned here are
+                reachable <em>through</em> this port, not physically connected to it.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowMacTable(v => !v)}
+            className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            {showMacTable ? 'Hide' : 'View'} MAC table ({data?.mac_count})
+          </button>
+          {showMacTable && (
+            macTable
+              ? <div className="-mx-5 -mb-5 border-t border-gray-100 dark:border-slate-700/60">
+                  <div className="px-5 py-2 text-xs text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-800/40">
+                    Reachable via this port — not necessarily physically connected.
+                  </div>
+                  <PortClientRows clients={macTable.clients} />
+                </div>
+              : <div className="text-xs text-gray-400"><RefreshCw className="w-3 h-3 animate-spin inline mr-1" />Loading…</div>
+          )}
+        </div>
+      ) : connected.length === 0 ? (
+        <div className="p-6 text-center text-sm text-gray-400 dark:text-slate-500">
+          No clients currently connected to this port.
+        </div>
+      ) : (
+        <PortClientRows clients={connected} />
       )}
     </div>
   );
@@ -988,25 +1120,28 @@ export default function SwitchPortDiagram({ deviceId, autoOpenBridge, onBridgeOp
       {selectedPorts.size === 1 && (() => {
         const portName = Array.from(selectedPorts)[0];
         return (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-            <div className="md:col-span-1">
-              <PortTrafficGraph
-                deviceId={deviceId}
-                portName={portName}
-                range={trafficRange}
-                onRangeChange={setTrafficRange}
-              />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+              <div className="md:col-span-1">
+                <PortTrafficGraph
+                  deviceId={deviceId}
+                  portName={portName}
+                  range={trafficRange}
+                  onRangeChange={setTrafficRange}
+                />
+              </div>
+              <div className="md:col-span-1">
+                <PortPacketGraph
+                  deviceId={deviceId}
+                  portName={portName}
+                  range={trafficRange}
+                />
+              </div>
+              <div className="md:col-span-1">
+                <PortInfoCard deviceId={deviceId} portName={portName} />
+              </div>
             </div>
-            <div className="md:col-span-1">
-              <PortPacketGraph
-                deviceId={deviceId}
-                portName={portName}
-                range={trafficRange}
-              />
-            </div>
-            <div className="md:col-span-1">
-              <PortInfoCard deviceId={deviceId} portName={portName} />
-            </div>
+            <PortClientsCard deviceId={deviceId} portName={portName} />
           </div>
         );
       })()}
