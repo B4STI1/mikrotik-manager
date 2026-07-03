@@ -9,6 +9,7 @@ import ClientsPage from './pages/ClientsPage';
 import EventsPage from './pages/EventsPage';
 import TopologyPage from './pages/TopologyPage';
 import BackupsPage from './pages/BackupsPage';
+import FirmwarePage from './pages/FirmwarePage';
 import SettingsPage from './pages/SettingsPage';
 import SwitchesOverviewPage from './pages/SwitchesOverviewPage';
 import SwitchesSettingsPage from './pages/SwitchesSettingsPage';
@@ -17,6 +18,7 @@ import RouterSettingsPage from './pages/RouterSettingsPage';
 import WirelessPage from './pages/WirelessPage';
 import WirelessSettingsPage from './pages/WirelessSettingsPage';
 import WirelessClientsPage from './pages/WirelessClientsPage';
+import GuestWifiPage from './pages/GuestWifiPage';
 import ClientDetailPage from './pages/ClientDetailPage';
 import NetworkServicesOverviewPage from './pages/NetworkServicesOverviewPage';
 import NetworkServicesDHCPPage from './pages/NetworkServicesDHCPPage';
@@ -56,6 +58,7 @@ export default function App() {
           <Route path="events" element={<EventsPage />} />
           <Route path="topology" element={<TopologyPage />} />
           <Route path="backups" element={<BackupsPage />} />
+          <Route path="firmware" element={<FirmwarePage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="switches" element={<SwitchesOverviewPage />} />
           <Route path="switches/settings" element={<SwitchesSettingsPage />} />
@@ -64,6 +67,7 @@ export default function App() {
           <Route path="wireless" element={<WirelessPage />} />
           <Route path="wireless/settings" element={<WirelessSettingsPage />} />
           <Route path="wireless/clients" element={<WirelessClientsPage />} />
+          <Route path="wireless/guest" element={<GuestWifiPage />} />
           <Route path="network-services" element={<NetworkServicesOverviewPage />} />
           <Route path="network-services/dhcp" element={<NetworkServicesDHCPPage />} />
           <Route path="network-services/dns" element={<NetworkServicesDNSPage />} />

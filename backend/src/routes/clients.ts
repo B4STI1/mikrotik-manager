@@ -4,6 +4,18 @@ import { query } from '../config/database';
 import { requireAuth, requireAdmin, requireWrite } from '../middleware/auth';
 import { PollerService } from '../services/PollerService';
 import { getQueryApi, bucket } from '../config/influxdb';
+import { fingerprintClient, DEVICE_CATEGORIES, DeviceCategory } from '../utils/clientFingerprint';
+
+// Effective category: the user's override wins; otherwise the fingerprint.
+function withCategory<T extends Record<string, unknown>>(row: T): T & { device_category: string; auto_category: string } {
+  const auto = fingerprintClient({
+    vendor: row['vendor'] as string | null,
+    hostname: row['hostname'] as string | null,
+    custom_name: row['custom_name'] as string | null,
+  });
+  const custom = (row['custom_category'] as string | null) || null;
+  return { ...row, device_category: custom ?? auto, auto_category: auto };
+}
 
 const router = Router();
 router.use(requireAuth);
@@ -89,7 +101,7 @@ router.get('/', async (req: Request, res: Response) => {
   );
 
   res.json({
-    clients,
+    clients: (clients as Record<string, unknown>[]).map(withCategory),
     total: parseInt(countResult[0]?.total || '0', 10),
   });
 });
@@ -133,7 +145,7 @@ router.get('/:mac', async (req: Request, res: Response) => {
   );
 
   if (!rows.length) return res.status(404).json({ error: 'Client not found' });
-  return res.json(rows[0]);
+  return res.json(withCategory(rows[0]));
 });
 
 // GET /api/clients/:mac/presence?range=2h|24h|7d — connectivity timeline from InfluxDB
@@ -322,6 +334,24 @@ router.put('/:mac/hostname', requireWrite, async (req: Request, res: Response) =
   );
   if (!result.length) return res.status(404).json({ error: 'Client not found' });
   return res.json(result[0]);
+});
+
+// PUT /api/clients/:mac/category — override (or clear) the fingerprinted device category
+router.put('/:mac/category', requireWrite, async (req: Request, res: Response) => {
+  const { category } = req.body as { category?: string | null };
+  const mac = req.params.mac.toLowerCase();
+
+  const clear = category === null || category === undefined || category === '';
+  if (!clear && !DEVICE_CATEGORIES.includes(category as DeviceCategory)) {
+    return res.status(400).json({ error: `category must be one of: ${DEVICE_CATEGORIES.join(', ')} (or null to revert to automatic)` });
+  }
+
+  const result = await query(
+    `UPDATE clients SET custom_category = $1 WHERE LOWER(mac_address) = $2 RETURNING *`,
+    [clear ? null : category, mac]
+  );
+  if (!result.length) return res.status(404).json({ error: 'Client not found' });
+  return res.json(withCategory(result[0] as Record<string, unknown>));
 });
 
 // PUT /api/clients/:mac/notes — update the comment/notes field

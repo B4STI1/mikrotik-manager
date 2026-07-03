@@ -2,7 +2,7 @@
 
 A self-hosted, full-stack network management platform for MikroTik devices. Monitor, configure, and manage your entire MikroTik infrastructure — routers, switches, and wireless access points — from a single web interface.
 
-![Version](https://img.shields.io/badge/version-0.16.2_Beta-blue)
+![Version](https://img.shields.io/badge/version-0.16.3_Beta-blue)
 ![License](https://img.shields.io/badge/license-AGPLv3-blue)
 ![Docker](https://img.shields.io/badge/docker-compose-2496ED?logo=docker&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white)
@@ -106,6 +106,7 @@ A self-hosted, full-stack network management platform for MikroTik devices. Moni
   - **Capacity & health** — per-device CPU/memory meters sorted by pressure
   - **Security posture rollup** — fleet average hardening score, high-severity finding count, and the lowest-scoring devices, deep-linking to the Security Center
   - **Recent activity feed** — merged config changes, user actions, and alerts
+  - **Anomaly insights** (Mist-style) — compares each device's last 30 minutes of client-count and CPU against its **same-hour-of-day 14-day baseline** and flags ≥2.5σ deviations, plus error-log burst detection — surfaced alongside rogue-AP alerts in Things to handle
 
 ### Device Management
 - Add, edit, and delete MikroTik devices (routers, switches, wireless APs)
@@ -113,6 +114,7 @@ A self-hosted, full-stack network management platform for MikroTik devices. Moni
 - Firmware update availability detection
 - Per-device notes, rack location, and physical address with map support
 - Device credential encryption at rest
+- **Encrypted API (api-ssl)** — devices whose API runs on the SSL port (8729) are reached over TLS automatically; RouterOS's default self-signed certificates are accepted, so the credentials and session are encrypted in transit without any manual certificate trust
 - **Bulk device add** — "Try All" discovered devices runs as a server-side background job (survives browser tab close) with live progress and cancel support
 - CPU load and historical sparkline displayed correctly for all device types, including hardware switches that report 0% CPU via ASIC offloading
 - **Device tags** — colored labels for organizing and filtering devices; full tag management in Settings
@@ -152,11 +154,20 @@ A Meraki/UniFi-grade firewall experience built on the full RouterOS feature set:
 - Scheduled and on-demand **AP scans** (nearby access point discovery)
 - Real-time radio monitoring
 - Wireless client tracking with vendor lookup
+- **Device fingerprinting** — every client is classified into a device category (server/NAS, computer, phone, TV, camera, printer, game console, voice assistant, smart-home, IoT, network gear…) from its OUI vendor and hostname, shown as an icon on the Clients list. The fingerprint is fully **overridable per client** on the client detail page, and the override persists across re-polls
 - **RF Health** (fleet-wide on the Wireless page and per-AP on the Radios tab):
   - **Channel usage map** across 2.4 / 5 / 6 GHz, computed from each radio's operating channel (live-resolved from `monitor` on the wifi package when channels are auto), highlighting in-use channels and **co-channel overlap**
   - **AP deployment density** — connected clients plotted across the −90…−30 dBm signal scale, with a coverage-gap warning when too many clients connect at weak RSSI
   - **AP radio TX retries** histogram (0%→35%+) with a band selector, derived from per-client CCQ (legacy `wireless` driver)
   - **WiFi connectivity success** funnel (Association / Authentication / DHCP) derived from device logs
+- **Rogue & neighbor AP detection** — cross-references stored AP-scan results against your own SSIDs and radio MACs. A foreign BSSID broadcasting one of *your* SSIDs is flagged as a **rogue / evil-twin** (and raised in Operations → Things to handle); everything else is a ranked neighbor-network inventory
+
+### Guest WiFi (Hotspot)
+A one-click captive-portal guest network on RouterOS Hotspot, under **Wireless → Guest WiFi**:
+- **Guided setup wizard** — creates the whole guest network in one pass: a new **guest SSID** (a virtual AP on every physical radio), **VLAN segregation** (guest SSIDs tagged onto the bridge with an L3 VLAN interface for the portal — or a dedicated guest bridge when no VLAN is given), IP pool, DHCP, hotspot profile, portal server, a bandwidth-limited guest user profile, and an optional masquerade NAT rule. Idempotent, with honest warnings (e.g. bridge VLAN-filtering disabled). Can also target an existing interface.
+- **Vouchers** — batch-generate access codes (`XXXX-XXXX`, no ambiguous characters) with validity hours, data caps, and a speed profile; **printable voucher sheets** (3-up cards with code, limits, and connection instructions) and a used/unused status table
+- **Guests online** — live session table (code, IP, MAC, session time, down/up bytes) with one-click disconnect
+- **Walled garden** — sites reachable before login, managed inline; per-server enable/disable
 
 ### Network Services
 Each service supports multi-device management with conflict detection:
@@ -201,10 +212,23 @@ Per-device diagnostic and testing tools accessible from the device detail Tools 
 | **Packet Capture** | Start the RouterOS sniffer, capture for 5–60 seconds, download a `.pcap` file directly to your browser (opens in Wireshark). Requires SSH credentials on the device. |
 | **Bandwidth Test** | Measure throughput between two devices. Select any managed device as the target — the bandwidth-test server is automatically enabled on the target before the test and disabled afterward. Manual IP mode available for non-managed targets. |
 
+### Firmware Orchestration
+Staged fleet-wide RouterOS upgrades, under the top-level **Firmware** section:
+- **Fleet versions** — current RouterOS, latest-known version, and pending RouterBOOT upgrades per device; **Check all for updates** queries every online device live
+- **Staged rollouts in waves** — select updatable devices and assign each to a wave (wave 1 = **canary**); the orchestrator runs one rollout at a time, devices sequentially, through a verified pipeline: **pre-upgrade backup → install → ride out the reboot → verify it returned healthy on the new version → next device**
+- **Halt on failure** stops the entire remaining rollout if any device fails, so a bad build never reaches the fleet; a reboot that comes back on the *old* version counts as a failure
+- **Schedule** rollouts for a future time (pair with a maintenance window); live wave-grouped progress with animated per-device status, `from → to` versions, error detail, and **Cancel** (never interrupts an in-flight flash)
+
 ### Backups
 - Trigger RouterOS backups on demand via SSH
 - **Scheduled automatic backups** — pick a daily, weekly, or monthly schedule and time in Settings (no cron knowledge required); runs for all online devices
 - Download and manage backup files from the UI
+
+### Platform & Automation
+Make the platform scriptable and integrable, under **Settings → Automation**:
+- **Scoped API tokens** — issue `mtm_…` tokens with **read** or **write** scope and optional expiry for scripting and IaC; the token is shown once (only a SHA-256 hash is stored) and maps onto the role model — no token can perform admin actions or manage other tokens. Use with `Authorization: Bearer mtm_…` against the full REST API
+- **Outbound webhooks** — subscribe URLs to any of 12 events (device up/down, log errors, high CPU/memory, cert expiry, device discovered, firmware update, config drift, firmware rollout completed/failed); deliveries are JSON POSTs **HMAC-SHA256 signed** (`X-MTM-Signature`) when a secret is set, with last-status tracking and a Send-test button. Fired through the same alert pipeline (respecting alert rules, cooldowns, and maintenance windows)
+- **Scheduled email reports** — daily/weekly/monthly HTML fleet summaries (devices online, outages + downtime, error/warning counts, updates pending, backups taken, top clients by traffic) to any recipient list, using your Alerting SMTP settings; Send-now for instant delivery
 
 ### Configuration History
 - Per-device config snapshots based on the device's full RouterOS `/export` — config-only, so counters and operational state never create noise — captured automatically whenever the configuration changes (deduplicated by content hash, so a snapshot is only stored on a real change)

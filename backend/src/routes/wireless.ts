@@ -846,4 +846,41 @@ router.get('/rf/connectivity', async (req: Request, res: Response) => {
   });
 });
 
+// ─── Rogue / neighbor AP detection ────────────────────────────────────────────
+
+// GET /api/wireless/rf/rogue — classify latest AP scans against our own SSIDs/BSSIDs
+router.get('/rf/rogue', async (_req: Request, res: Response) => {
+  const { classifyScans } = await import('../utils/rogueAp');
+
+  const [scans, radios, ifaceMacs] = await Promise.all([
+    query<{ device_id: number; device_name: string; scanned_at: string; data: unknown }>(`
+      SELECT DISTINCT ON (a.device_id) a.device_id, d.name AS device_name, a.scanned_at, a.data
+      FROM ap_scan_data a JOIN devices d ON d.id = a.device_id
+      ORDER BY a.device_id, a.scanned_at DESC`),
+    query<{ ssid: string | null; mac_address: string | null }>(
+      `SELECT ssid, mac_address FROM wireless_interfaces`),
+    query<{ mac_address: string }>(
+      `SELECT mac_address FROM interfaces WHERE mac_address IS NOT NULL`),
+  ]);
+
+  const ownSsids = new Set(radios.map(r => r.ssid || '').filter(Boolean));
+  const ownBssids = new Set([
+    ...radios.map(r => (r.mac_address || '').toLowerCase()).filter(Boolean),
+    ...ifaceMacs.map(r => r.mac_address.toLowerCase()),
+  ]);
+
+  const records = scans.map(s => ({
+    deviceName: s.device_name,
+    scannedAt: String(s.scanned_at),
+    networks: Array.isArray(s.data) ? s.data as import('../utils/rogueAp').ScannedNetwork[] : [],
+  }));
+
+  const { rogues, neighbors } = classifyScans(records, ownSsids, ownBssids);
+  res.json({
+    rogues, neighbors,
+    lastScanAt: scans.length ? scans.map(s => String(s.scanned_at)).sort().pop() : null,
+    scannedDevices: scans.length,
+  });
+});
+
 export default router;

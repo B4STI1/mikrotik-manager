@@ -368,6 +368,8 @@ export const clientsApi = {
     api.put<Client>(`/clients/${mac}/notes`, { notes }),
   updateHostname: (mac: string, hostname: string) =>
     api.put<Client>(`/clients/${mac}/hostname`, { hostname }),
+  updateCategory: (mac: string, category: string | null) =>
+    api.put<Client>(`/clients/${encodeURIComponent(mac)}/category`, { category }),
   purgeStale: () => api.post<{ message: string; count: number }>('/clients/purge'),
 };
 
@@ -413,6 +415,124 @@ export const eventsApi = {
 };
 
 // ─── Backups ──────────────────────────────────────────────────────────────────
+// ─── Guest WiFi (Hotspot) ───────────────────────────────────────────────────────
+type HS = Record<string, string>;
+export interface GuestWifiOverview {
+  servers: HS[];
+  profiles: HS[];
+  userProfiles: HS[];
+  userCount: number;
+  activeCount: number;
+  interfaces: { name: string; type: string }[];
+}
+
+export const guestWifiApi = {
+  overview: (deviceId: number) =>
+    api.get<GuestWifiOverview>('/guest-wifi/overview', { params: { deviceId }, timeout: 60_000 }),
+  setup: (deviceId: number, data: {
+    name: string; gatewayCidr: string; poolRange: string; dnsName?: string; rateLimit?: string;
+    interfaceName?: string; ssid?: { ssid: string; passphrase?: string }; vlanId?: number; masquerade?: boolean;
+  }) =>
+    api.post<{
+      server: string; profile: string; userProfile: string; pool: string;
+      targetInterface: string; ssidInterfaces: string[]; vlanInterface?: string; warnings: string[];
+    }>('/guest-wifi/setup', { deviceId, ...data }, { timeout: 120_000 }),
+  users: (deviceId: number) => api.get<HS[]>('/guest-wifi/users', { params: { deviceId } }),
+  createVouchers: (deviceId: number, data: { count: number; durationHours?: number; dataCapMB?: number; userProfile?: string }) =>
+    api.post<{ created: number; codes: string[] }>('/guest-wifi/vouchers', { deviceId, ...data }, { timeout: 120_000 }),
+  deleteUser: (deviceId: number, id: string) =>
+    api.delete(`/guest-wifi/users/${encodeURIComponent(id)}`, { params: { deviceId } }),
+  active: (deviceId: number) => api.get<HS[]>('/guest-wifi/active', { params: { deviceId } }),
+  disconnect: (deviceId: number, id: string) =>
+    api.delete(`/guest-wifi/active/${encodeURIComponent(id)}`, { params: { deviceId } }),
+  walledGarden: (deviceId: number) => api.get<HS[]>('/guest-wifi/walled-garden', { params: { deviceId } }),
+  addWalledGarden: (deviceId: number, dstHost: string, comment?: string) =>
+    api.post('/guest-wifi/walled-garden', { deviceId, dstHost, comment }),
+  removeWalledGarden: (deviceId: number, id: string) =>
+    api.delete(`/guest-wifi/walled-garden/${encodeURIComponent(id)}`, { params: { deviceId } }),
+  setServerDisabled: (deviceId: number, id: string, disabled: boolean) =>
+    api.put(`/guest-wifi/servers/${encodeURIComponent(id)}`, { deviceId, disabled }),
+  removeServer: (deviceId: number, id: string) =>
+    api.delete(`/guest-wifi/servers/${encodeURIComponent(id)}`, { params: { deviceId } }),
+};
+
+// ─── Platform & automation ──────────────────────────────────────────────────────
+export interface ApiToken {
+  id: number; name: string; prefix: string; scope: 'read' | 'write';
+  created_by: string | null; last_used_at: string | null; expires_at: string | null; created_at: string;
+}
+export interface Webhook {
+  id: number; name: string; url: string; has_secret: boolean;
+  events: string[]; enabled: boolean; last_status: number | null; last_fired_at: string | null; created_at: string;
+}
+export interface ReportSchedule {
+  id: number; name: string; frequency: 'daily' | 'weekly' | 'monthly';
+  recipients: string; enabled: boolean; last_sent_at: string | null; next_run_at: string; created_at: string;
+}
+
+export const automationApi = {
+  // tokens (admin only)
+  listTokens: () => api.get<ApiToken[]>('/automation/tokens'),
+  createToken: (data: { name: string; scope: 'read' | 'write'; expires_days?: number }) =>
+    api.post<{ id: number; token: string }>('/automation/tokens', data),
+  deleteToken: (id: number) => api.delete(`/automation/tokens/${id}`),
+  // webhooks
+  listWebhooks: () => api.get<{ webhooks: Webhook[]; availableEvents: string[] }>('/automation/webhooks'),
+  createWebhook: (data: { name: string; url: string; secret?: string; events: string[] }) =>
+    api.post<{ id: number }>('/automation/webhooks', data),
+  updateWebhook: (id: number, data: Partial<{ name: string; url: string; secret: string; events: string[]; enabled: boolean }>) =>
+    api.put(`/automation/webhooks/${id}`, data),
+  deleteWebhook: (id: number) => api.delete(`/automation/webhooks/${id}`),
+  testWebhook: (id: number) => api.post<{ ok: boolean; status: number }>(`/automation/webhooks/${id}/test`),
+  // reports
+  listReports: () => api.get<ReportSchedule[]>('/automation/reports'),
+  createReport: (data: { name: string; frequency: string; recipients: string }) =>
+    api.post<{ id: number }>('/automation/reports', data),
+  updateReport: (id: number, data: { enabled?: boolean }) => api.put(`/automation/reports/${id}`, data),
+  deleteReport: (id: number) => api.delete(`/automation/reports/${id}`),
+  sendReportNow: (id: number) => api.post(`/automation/reports/${id}/send-now`, undefined, { timeout: 60_000 }),
+};
+
+// ─── Firmware orchestration ─────────────────────────────────────────────────────
+export interface FirmwareDeviceRow {
+  id: number; name: string; device_type: string; status: string; model: string | null;
+  ros_version: string | null; latest_ros_version: string | null;
+  firmware_update_available: boolean;
+  firmware_version: string | null; upgrade_firmware_version: string | null;
+  routerboard_upgrade_available: boolean;
+}
+export interface FirmwareRollout {
+  id: number; name: string; status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  halt_on_failure: boolean; pre_backup: boolean;
+  scheduled_at: string | null; started_at: string | null; finished_at: string | null; created_at: string;
+  device_count?: number; success_count?: number; failed_count?: number;
+}
+export interface FirmwareRolloutDevice {
+  id: number; rollout_id: number; device_id: number; wave: number;
+  status: 'pending' | 'backing_up' | 'upgrading' | 'rebooting' | 'verifying' | 'success' | 'failed' | 'skipped';
+  from_version: string | null; to_version: string | null; error: string | null;
+  started_at: string | null; finished_at: string | null;
+  device_name: string; device_type: string; model: string | null;
+}
+
+export const firmwareApi = {
+  overview: () =>
+    api.get<{ devices: FirmwareDeviceRow[]; latestRolloutId: number | null; runningRolloutId: number | null }>('/firmware/overview'),
+  checkAll: () =>
+    api.post<{ results: { name: string; ok: boolean; installed?: string; latest?: string; available?: boolean; error?: string }[] }>(
+      '/firmware/check-all', undefined, { timeout: 180_000 }),
+  createRollout: (data: {
+    name: string; halt_on_failure: boolean; pre_backup: boolean;
+    scheduled_at?: string | null; start?: boolean;
+    devices: { device_id: number; wave: number }[];
+  }) => api.post<{ id: number }>('/firmware/rollouts', data),
+  listRollouts: () => api.get<FirmwareRollout[]>('/firmware/rollouts'),
+  getRollout: (id: number) =>
+    api.get<FirmwareRollout & { devices: FirmwareRolloutDevice[] }>(`/firmware/rollouts/${id}`),
+  startRollout: (id: number) => api.post(`/firmware/rollouts/${id}/start`),
+  cancelRollout: (id: number) => api.post(`/firmware/rollouts/${id}/cancel`),
+};
+
 // ─── Operations ────────────────────────────────────────────────────────────────
 export interface OpsAttentionItem {
   sev: 'error' | 'warn' | 'info';
@@ -753,6 +873,10 @@ export const wirelessApi = {
   runAPScan:         (apId: number) => api.post(`/wireless/${apId}/ap-scan`),
   getAPScanHistory:  (apId: number, limit = 5) =>
     api.get(`/wireless/${apId}/ap-scan-history`, { params: { limit } }),
+
+  // Rogue / neighbor AP detection (classified from stored AP scans)
+  getRogueAps: () =>
+    api.get<import('../types').RogueApReport>('/wireless/rf/rogue'),
 
   // RF Health (fleet-wide, or scoped to one AP via deviceId)
   getChannelUsage: (deviceId?: number) =>

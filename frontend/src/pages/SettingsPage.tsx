@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Settings, Users, Key, Plus, Trash2, CheckCircle, AlertCircle, Pencil, X,
-  ShieldCheck, ShieldAlert, RefreshCw, Upload, Lock, Bell, Send, KeyRound, ClipboardList, FileText,
+  ShieldCheck, ShieldAlert, RefreshCw, Upload, Lock, Bell, Send, KeyRound, ClipboardList, FileText, Zap,
 } from 'lucide-react';
 import { settingsApi, authApi, certApi, alertsApi, auditLogApi, tagsApi, maintenanceApi, configTemplatesApi } from '../services/api';
 import type { MaintenanceWindow, ConfigTemplate } from '../services/api';
@@ -16,6 +16,7 @@ import {
 } from '../utils/backupSchedule';
 import clsx from 'clsx';
 import CredentialPresetsSettings from '../components/settings/CredentialPresetsSettings';
+import AutomationSettings from '../components/settings/AutomationSettings';
 
 const ROLE_META: Record<UserRole, { label: string; color: string; desc: string }> = {
   admin:    { label: 'Admin',    color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',    desc: 'Full access including user management' },
@@ -47,7 +48,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useThemeStore();
   const isAdmin = user?.role === 'admin';
   const canWrite = user?.role !== 'viewer';
-  const [activeTab, setActiveTab] = useState<'general' | 'users' | 'credentials' | 'security' | 'certificate' | 'alerting' | 'audit' | 'tags' | 'maintenance' | 'templates'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'users' | 'credentials' | 'security' | 'certificate' | 'alerting' | 'audit' | 'tags' | 'maintenance' | 'templates' | 'automation'>('general');
   const [auditSearch, setAuditSearch] = useState('');
   const [auditPage, setAuditPage] = useState(1);
   const [newTagName, setNewTagName] = useState('');
@@ -470,6 +471,7 @@ export default function SettingsPage() {
     { key: 'security' as const, label: 'My Password', icon: Key },
     { key: 'certificate' as const, label: 'Certificate', icon: Lock },
     { key: 'alerting' as const, label: 'Alerting', icon: Bell },
+    { key: 'automation' as const, label: 'Automation', icon: Zap },
     ...(isAdmin ? [
       { key: 'templates' as const, label: 'Config Templates', icon: FileText },
       { key: 'tags' as const, label: 'Tags', icon: ShieldCheck },
@@ -1773,6 +1775,10 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* ── Automation (API tokens, webhooks, scheduled reports) ── */}
+      {activeTab === 'automation' && (
+        <AutomationSettings isAdmin={isAdmin} />
       )}
       {/* ── Config Templates ── */}
       {activeTab === 'templates' && (

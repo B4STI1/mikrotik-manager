@@ -1,0 +1,200 @@
+import { Router, Request, Response } from 'express';
+import { randomBytes } from 'crypto';
+import { queryOne } from '../config/database';
+import { requireAuth, requireWrite } from '../middleware/auth';
+import { DeviceCollector, DeviceRow } from '../services/mikrotik/DeviceCollector';
+
+const router = Router();
+router.use(requireAuth);
+
+async function getDevice(id: number): Promise<DeviceRow | null> {
+  return queryOne<DeviceRow>(`SELECT * FROM devices WHERE id = $1`, [id]);
+}
+
+// Run fn against a connected collector for ?deviceId= / body.deviceId
+async function withDevice<T>(
+  req: Request, res: Response,
+  fn: (c: DeviceCollector) => Promise<T>
+): Promise<T | undefined> {
+  const deviceId = parseInt(String(req.query.deviceId ?? (req.body as { deviceId?: number })?.deviceId ?? ''), 10);
+  if (!deviceId) { res.status(400).json({ error: 'deviceId is required' }); return undefined; }
+  const device = await getDevice(deviceId);
+  if (!device) { res.status(404).json({ error: 'Device not found' }); return undefined; }
+  const collector = new DeviceCollector(device);
+  try {
+    await collector.connect();
+    return await fn(collector);
+  } catch (err) {
+    res.status(502).json({ error: (err as Error).message });
+    return undefined;
+  } finally {
+    collector.disconnect();
+  }
+}
+
+// ─── Overview ────────────────────────────────────────────────────────────────
+
+// GET /api/guest-wifi/overview?deviceId=
+router.get('/overview', async (req: Request, res: Response) => {
+  const result = await withDevice(req, res, async (c) => {
+    const [servers, profiles, userProfiles, users, active, interfaces] = await Promise.all([
+      c.getHotspotServers(), c.getHotspotProfiles(), c.getHotspotUserProfiles(),
+      c.getHotspotUsers(), c.getHotspotActive(),
+      c.getInterfacesLive().catch(() => [] as Record<string, string>[]),
+    ]);
+    return {
+      servers, profiles, userProfiles,
+      userCount: users.length,
+      activeCount: active.length,
+      interfaces: interfaces
+        .filter(i => /^(bridge|vlan|wifi|wlan|ether)/i.test(i['name'] || '') && i['disabled'] !== 'true')
+        .map(i => ({ name: i['name'], type: i['type'] || '' })),
+    };
+  });
+  if (result !== undefined) res.json(result);
+});
+
+// ─── Guided setup ─────────────────────────────────────────────────────────────
+
+// POST /api/guest-wifi/setup
+router.post('/setup', requireWrite, async (req: Request, res: Response) => {
+  const { name, interfaceName, gatewayCidr, poolRange, dnsName, rateLimit } = req.body as Record<string, string>;
+  const { ssid, vlanId, masquerade } = req.body as {
+    ssid?: { ssid?: string; passphrase?: string }; vlanId?: number; masquerade?: boolean;
+  };
+  if (!name || !/^[a-z0-9-]{2,24}$/i.test(name)) { res.status(400).json({ error: 'name (2-24 alphanumeric/dash) is required' }); return; }
+  if (!ssid?.ssid && !interfaceName) { res.status(400).json({ error: 'Provide a guest SSID to create, or an existing interfaceName' }); return; }
+  if (ssid?.ssid && (ssid.ssid.length < 1 || ssid.ssid.length > 32)) { res.status(400).json({ error: 'SSID must be 1-32 characters' }); return; }
+  if (ssid?.passphrase && ssid.passphrase.length < 8) { res.status(400).json({ error: 'Passphrase must be at least 8 characters (or empty for an open network)' }); return; }
+  if (vlanId !== undefined && (!Number.isInteger(vlanId) || vlanId < 1 || vlanId > 4094)) { res.status(400).json({ error: 'vlanId must be 1-4094' }); return; }
+  if (!/^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(gatewayCidr || '')) { res.status(400).json({ error: 'gatewayCidr must look like 10.5.50.1/24' }); return; }
+  if (!/^\d{1,3}(\.\d{1,3}){3}-\d{1,3}(\.\d{1,3}){3}$/.test(poolRange || '')) { res.status(400).json({ error: 'poolRange must look like 10.5.50.10-10.5.50.254' }); return; }
+  if (rateLimit && !/^\d+[kMG]?\/\d+[kMG]?$/.test(rateLimit)) { res.status(400).json({ error: 'rateLimit must look like 10M/10M (rx/tx)' }); return; }
+
+  const result = await withDevice(req, res, (c) =>
+    c.setupGuestNetwork({
+      name: name.toLowerCase(), gatewayCidr, poolRange, dnsName, rateLimit,
+      interfaceName: interfaceName || undefined,
+      ssid: ssid?.ssid ? { ssid: ssid.ssid, passphrase: ssid.passphrase || undefined } : undefined,
+      vlanId, masquerade: masquerade !== false,
+    })
+  );
+  if (result !== undefined) res.status(201).json(result);
+});
+
+// ─── Vouchers (hotspot users) ─────────────────────────────────────────────────
+
+// Human-friendly voucher codes: no ambiguous chars (0/O, 1/I/L)
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function generateCode(len = 8): string {
+  const bytes = randomBytes(len);
+  let out = '';
+  for (let i = 0; i < len; i++) out += CODE_CHARS[bytes[i] % CODE_CHARS.length];
+  return `${out.slice(0, 4)}-${out.slice(4)}`;
+}
+
+// GET /api/guest-wifi/users?deviceId=
+router.get('/users', async (req: Request, res: Response) => {
+  const result = await withDevice(req, res, (c) => c.getHotspotUsers());
+  if (result !== undefined) res.json(result);
+});
+
+// POST /api/guest-wifi/vouchers — batch-create voucher users
+router.post('/vouchers', requireWrite, async (req: Request, res: Response) => {
+  const { count, durationHours, dataCapMB, userProfile } = req.body as {
+    count?: number; durationHours?: number; dataCapMB?: number; userProfile?: string;
+  };
+  const n = Math.min(Math.max(parseInt(String(count ?? 1), 10) || 1, 1), 100);
+
+  const result = await withDevice(req, res, async (c) => {
+    const existing = new Set((await c.getHotspotUsers()).map(u => u['name']));
+    const batch = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    const codes: string[] = [];
+    for (let i = 0; i < n; i++) {
+      let code = generateCode();
+      let guard = 0;
+      while (existing.has(code) && guard++ < 20) code = generateCode();
+      existing.add(code);
+      const params: Record<string, string> = { name: code, comment: `voucher ${batch}` };
+      if (userProfile) params['profile'] = userProfile;
+      if (durationHours && durationHours > 0) params['limit-uptime'] = `${Math.floor(durationHours)}h`;
+      if (dataCapMB && dataCapMB > 0) params['limit-bytes-total'] = String(Math.floor(dataCapMB) * 1024 * 1024);
+      await c.addHotspotUser(params);
+      codes.push(code);
+    }
+    return { created: codes.length, codes };
+  });
+  if (result !== undefined) res.status(201).json(result);
+});
+
+// DELETE /api/guest-wifi/users/:id?deviceId=
+router.delete('/users/:id', requireWrite, async (req: Request, res: Response) => {
+  const result = await withDevice(req, res, async (c) => {
+    await c.removeHotspotUser(req.params.id);
+    return { ok: true };
+  });
+  if (result !== undefined) res.json(result);
+});
+
+// ─── Active sessions ──────────────────────────────────────────────────────────
+
+// GET /api/guest-wifi/active?deviceId=
+router.get('/active', async (req: Request, res: Response) => {
+  const result = await withDevice(req, res, (c) => c.getHotspotActive());
+  if (result !== undefined) res.json(result);
+});
+
+// DELETE /api/guest-wifi/active/:id?deviceId= — kick a guest
+router.delete('/active/:id', requireWrite, async (req: Request, res: Response) => {
+  const result = await withDevice(req, res, async (c) => {
+    await c.disconnectHotspotActive(req.params.id);
+    return { ok: true };
+  });
+  if (result !== undefined) res.json(result);
+});
+
+// ─── Walled garden ────────────────────────────────────────────────────────────
+
+router.get('/walled-garden', async (req: Request, res: Response) => {
+  const result = await withDevice(req, res, (c) => c.getWalledGarden());
+  if (result !== undefined) res.json(result);
+});
+
+router.post('/walled-garden', requireWrite, async (req: Request, res: Response) => {
+  const { dstHost, comment } = req.body as { dstHost?: string; comment?: string };
+  if (!dstHost || !dstHost.trim()) { res.status(400).json({ error: 'dstHost is required' }); return; }
+  const result = await withDevice(req, res, async (c) => {
+    await c.addWalledGardenEntry(dstHost.trim(), comment);
+    return { ok: true };
+  });
+  if (result !== undefined) res.status(201).json(result);
+});
+
+router.delete('/walled-garden/:id', requireWrite, async (req: Request, res: Response) => {
+  const result = await withDevice(req, res, async (c) => {
+    await c.removeWalledGardenEntry(req.params.id);
+    return { ok: true };
+  });
+  if (result !== undefined) res.json(result);
+});
+
+// ─── Server enable/disable/remove ─────────────────────────────────────────────
+
+router.put('/servers/:id', requireWrite, async (req: Request, res: Response) => {
+  const { disabled } = req.body as { disabled?: boolean };
+  const result = await withDevice(req, res, async (c) => {
+    await c.setHotspotServerDisabled(req.params.id, !!disabled);
+    return { ok: true };
+  });
+  if (result !== undefined) res.json(result);
+});
+
+router.delete('/servers/:id', requireWrite, async (req: Request, res: Response) => {
+  const result = await withDevice(req, res, async (c) => {
+    await c.removeHotspotServer(req.params.id);
+    return { ok: true };
+  });
+  if (result !== undefined) res.json(result);
+});
+
+export default router;

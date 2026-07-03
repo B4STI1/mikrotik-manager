@@ -36,6 +36,11 @@ import devicesRoutes, { setPollerService as setDevicesPoller } from './routes/de
 import clientsRoutes, { setPollerService as setClientsPoller } from './routes/clients';
 import eventsRoutes from './routes/events';
 import backupsRoutes from './routes/backups';
+import guestWifiRoutes from './routes/guestWifi';
+import firmwareRoutes from './routes/firmware';
+import automationRoutes from './routes/automation';
+import { reportService } from './services/ReportService';
+import { firmwareOrchestrator } from './services/FirmwareOrchestrator';
 import operationsRoutes from './routes/operations';
 import metricsRoutes from './routes/metrics';
 import topologyRoutes, { setPollerService as setTopologyPoller } from './routes/topology';
@@ -208,6 +213,9 @@ app.use('/api/clients', clientsRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/backups', backupsRoutes);
 app.use('/api/operations', operationsRoutes);
+app.use('/api/guest-wifi', guestWifiRoutes);
+app.use('/api/firmware', firmwareRoutes);
+app.use('/api/automation', automationRoutes);
 app.use('/api/metrics', metricsRoutes);
 app.use('/api/topology', topologyRoutes);
 app.use('/api/settings', settingsRoutes);
@@ -269,6 +277,12 @@ async function start(): Promise<void> {
 
   // NetFlow/IPFIX collector (binds its UDP socket only when netflow_enabled)
   await netflowCollector.start();
+
+  // Firmware rollout scheduler (starts rollouts whose scheduled_at has arrived)
+  firmwareOrchestrator.startScheduler();
+
+  // Scheduled report mailer (hourly check)
+  reportService.startScheduler();
 
   // Start HTTP server
   httpServer.listen(PORT, '0.0.0.0', () => {

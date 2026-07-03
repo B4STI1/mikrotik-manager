@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Search, Wifi, Network, Users, X, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import {
+  Search, Wifi, Network, Users, X, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown,
+  ChevronLeft, ChevronRight, RefreshCw,
+} from 'lucide-react';
+import { CATEGORY_META } from '../utils/clientCategories';
 import { clientsApi } from '../services/api';
 import type { Client } from '../types';
 import { useCanWrite } from '../hooks/useCanWrite';
@@ -44,6 +48,17 @@ function getPageList(current0: number, totalPages: number): (number | 'ellipsis'
     prev = p;
   }
   return out;
+}
+
+function CategoryIcon({ category }: { category?: string }) {
+  const meta = category && category !== 'unknown' ? CATEGORY_META[category] : undefined;
+  if (!meta) return null;
+  const Icon = meta.icon;
+  return (
+    <span title={meta.label} className="flex-shrink-0 text-gray-400 dark:text-slate-500">
+      <Icon className="w-3.5 h-3.5" />
+    </span>
+  );
 }
 
 function formatDataBytes(bytes: number): string {
@@ -365,7 +380,8 @@ export default function ClientsPage() {
                     className="hover:bg-gray-50 dark:hover:bg-slate-700/30"
                   >
                     <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <CategoryIcon category={client.device_category} />
                         <button
                           onClick={() => navigate(`/clients/${encodeURIComponent(client.mac_address)}`)}
                           className="font-medium text-blue-600 dark:text-blue-400 hover:underline text-left truncate"

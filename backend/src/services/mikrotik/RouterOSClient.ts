@@ -1,4 +1,5 @@
 import * as net from 'net';
+import * as tls from 'tls';
 import * as crypto from 'crypto';
 import { EventEmitter } from 'events';
 
@@ -34,15 +35,21 @@ export class RouterOSClient extends EventEmitter {
 
   private tagCounter = 0;
 
+  private readonly useTls: boolean;
+
   constructor(
     private readonly host: string,
     private readonly port: number = 8728,
     private readonly username: string,
     private readonly password: string,
     private readonly connectTimeoutMs: number = 15000,
-    private readonly readTimeoutMs: number = 30000
+    private readonly readTimeoutMs: number = 30000,
+    useTls?: boolean
   ) {
     super();
+    // api-ssl runs on 8729 by RouterOS convention (the same heuristic the
+    // security-posture code uses); callers can override explicitly.
+    this.useTls = useTls ?? port === 8729;
   }
 
   async connect(): Promise<void> {
@@ -54,9 +61,7 @@ export class RouterOSClient extends EventEmitter {
         this.socket?.destroy();
       }, this.connectTimeoutMs);
 
-      this.socket = net.createConnection({ host: this.host, port: this.port });
-
-      this.socket.on('connect', async () => {
+      const onReady = async () => {
         clearTimeout(timer);
         try {
           await this.authenticate();
@@ -67,7 +72,21 @@ export class RouterOSClient extends EventEmitter {
           this.socket?.destroy();
           reject(err);
         }
-      });
+      };
+
+      if (this.useTls) {
+        // api-ssl: RouterOS devices ship self-signed certificates by default,
+        // so certificate verification is intentionally disabled — the same
+        // trust model as the plaintext API this replaces, but with the
+        // credentials and session encrypted in transit.
+        this.socket = tls.connect(
+          { host: this.host, port: this.port, rejectUnauthorized: false },
+          () => { void onReady(); }
+        );
+      } else {
+        this.socket = net.createConnection({ host: this.host, port: this.port });
+        this.socket.on('connect', () => { void onReady(); });
+      }
 
       this.socket.on('data', (data: Buffer) => {
         this.buffer = Buffer.concat([this.buffer, data]);

@@ -190,6 +190,12 @@ export interface Client {
   device_name?: string;
   mac_address: string;
   custom_name?: string;
+  /** Effective device category: user override if set, else the fingerprint. */
+  device_category?: string;
+  /** What the fingerprint engine detected (before any user override). */
+  auto_category?: string;
+  /** User's manual category override, if any. */
+  custom_category?: string | null;
   hostname?: string;
   vendor?: string;
   ip_address?: string;
@@ -362,6 +368,20 @@ export interface WirelessMetricPoint {
   ssid?: string;
   registered_clients?: number;
   noise_floor?: number;
+}
+
+// ─── Rogue AP detection ─────────────────────────────────────────────────────
+
+export interface RogueAp {
+  ssid: string; bssid: string; vendor: string; signal: number; band: string;
+  seenBy: string; scannedAt: string;
+}
+export interface NeighborAp extends RogueAp { security: string }
+export interface RogueApReport {
+  rogues: RogueAp[];
+  neighbors: NeighborAp[];
+  lastScanAt: string | null;
+  scannedDevices: number;
 }
 
 // ─── RF Health ──────────────────────────────────────────────────────────────

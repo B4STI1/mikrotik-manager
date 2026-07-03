@@ -1580,6 +1580,10 @@ export class DeviceCollector {
     return this.client.execute('/interface/bridge/print').catch(() => []);
   }
 
+  async getInterfacesLive(): Promise<Record<string, string>[]> {
+    return this.client.execute('/interface/print').catch(() => []);
+  }
+
   async getBridgePorts(): Promise<Record<string, string>[]> {
     return this.client.execute('/interface/bridge/port/print').catch(() => []);
   }
@@ -1933,6 +1937,318 @@ export class DeviceCollector {
 
   async removeSimpleQueue(id: string): Promise<void> {
     await this.client.execute('/queue/simple/remove', { '.id': id });
+  }
+
+  // ─── Hotspot (Guest WiFi captive portal + vouchers) ─────────────────────────
+
+  async getHotspotServers(): Promise<Record<string, string>[]> {
+    return this.client.execute('/ip/hotspot/print', { detail: '' }).catch(() => [] as Record<string, string>[]);
+  }
+
+  async setHotspotServerDisabled(id: string, disabled: boolean): Promise<void> {
+    await this.client.execute('/ip/hotspot/set', { '.id': id, disabled: disabled ? 'yes' : 'no' });
+  }
+
+  async removeHotspotServer(id: string): Promise<void> {
+    await this.client.execute('/ip/hotspot/remove', { '.id': id });
+  }
+
+  async getHotspotProfiles(): Promise<Record<string, string>[]> {
+    return this.client.execute('/ip/hotspot/profile/print', { detail: '' }).catch(() => [] as Record<string, string>[]);
+  }
+
+  async addHotspotProfile(params: Record<string, string>): Promise<void> {
+    await this.client.execute('/ip/hotspot/profile/add', params);
+  }
+
+  async getHotspotUserProfiles(): Promise<Record<string, string>[]> {
+    return this.client.execute('/ip/hotspot/user/profile/print', { detail: '' }).catch(() => [] as Record<string, string>[]);
+  }
+
+  async addHotspotUserProfile(params: Record<string, string>): Promise<void> {
+    await this.client.execute('/ip/hotspot/user/profile/add', params);
+  }
+
+  async getHotspotUsers(): Promise<Record<string, string>[]> {
+    return this.client.execute('/ip/hotspot/user/print', { detail: '' }).catch(() => [] as Record<string, string>[]);
+  }
+
+  async addHotspotUser(params: Record<string, string>): Promise<void> {
+    await this.client.execute('/ip/hotspot/user/add', params);
+  }
+
+  async removeHotspotUser(id: string): Promise<void> {
+    await this.client.execute('/ip/hotspot/user/remove', { '.id': id });
+  }
+
+  async getHotspotActive(): Promise<Record<string, string>[]> {
+    return this.client.execute('/ip/hotspot/active/print', { detail: '' }).catch(() => [] as Record<string, string>[]);
+  }
+
+  async disconnectHotspotActive(id: string): Promise<void> {
+    await this.client.execute('/ip/hotspot/active/remove', { '.id': id });
+  }
+
+  async getWalledGarden(): Promise<Record<string, string>[]> {
+    return this.client.execute('/ip/hotspot/walled-garden/print', { detail: '' }).catch(() => [] as Record<string, string>[]);
+  }
+
+  async addWalledGardenEntry(dstHost: string, comment?: string): Promise<void> {
+    const params: Record<string, string> = { 'dst-host': dstHost, action: 'allow' };
+    if (comment) params['comment'] = comment;
+    await this.client.execute('/ip/hotspot/walled-garden/add', params);
+  }
+
+  async removeWalledGardenEntry(id: string): Promise<void> {
+    await this.client.execute('/ip/hotspot/walled-garden/remove', { '.id': id });
+  }
+
+  /**
+   * Full guest-network orchestration. Optionally creates the guest SSID itself
+   * (a virtual AP on every physical radio) and segregates the traffic onto a
+   * VLAN, then runs the captive-portal chain on the resulting interface:
+   *
+   *   [virtual APs] → [bridge/VLAN wiring] → pool → gw address → DHCP →
+   *   hotspot profile → portal server → guest user profile → [masquerade NAT]
+   *
+   * Topologies:
+   *  - ssid + vlanId:  new SSIDs joined to the main bridge with PVID=vlanId,
+   *                    portal binds to a new /interface/vlan on that bridge.
+   *  - ssid only:      new SSIDs joined to a dedicated guest bridge, portal
+   *                    binds to that bridge (guests stay off the main LAN).
+   *  - neither:        portal binds to the provided existing interface.
+   */
+  async setupGuestNetwork(opts: {
+    name: string;
+    gatewayCidr: string;
+    poolRange: string;
+    dnsName?: string;
+    rateLimit?: string;
+    interfaceName?: string;                    // existing-interface path
+    ssid?: { ssid: string; passphrase?: string };
+    vlanId?: number;
+    masquerade?: boolean;
+  }): Promise<{
+    server: string; profile: string; userProfile: string; pool: string;
+    targetInterface: string; ssidInterfaces: string[]; vlanInterface?: string;
+    warnings: string[];
+  }> {
+    const { name, ssid, vlanId, masquerade } = opts;
+    const warnings: string[] = [];
+    const ssidInterfaces: string[] = [];
+    let targetInterface = opts.interfaceName || '';
+    let vlanInterface: string | undefined;
+
+    if (ssid) {
+      // 1. Create a virtual AP for the guest SSID on every physical radio
+      const pkg = await this.detectWifiPackage();
+      if (pkg === 'none') throw new Error('No wireless package detected on this device — cannot create a guest SSID');
+      const raw = pkg === 'wifi'
+        ? await this.client.execute('/interface/wifi/print').catch(() => [] as Record<string, string>[])
+        : await this.client.execute('/interface/wireless/print').catch(() => [] as Record<string, string>[]);
+      const physicals = raw.filter(r => !r['master-interface'] && r['name']);
+      if (physicals.length === 0) throw new Error('No physical radios found to attach the guest SSID to');
+
+      const existingBySsid = raw.filter(r =>
+        (r['ssid'] || r['configuration.ssid'] || '') === ssid.ssid && r['master-interface']);
+      if (existingBySsid.length > 0) {
+        // Idempotency: SSID already exists — reuse it
+        for (const e of existingBySsid) ssidInterfaces.push(e['name']);
+      } else {
+        for (const radio of physicals) {
+          const ifaceName = await this.getNextInterfaceName();
+          const params: Record<string, string> = {
+            name: ifaceName,
+            'master-interface': radio['name'],
+            ssid: ssid.ssid,
+            disabled: 'no',
+          };
+          if (pkg !== 'wifi') params['mode'] = 'ap-bridge';
+          if (ssid.passphrase) {
+            params['passphrase'] = ssid.passphrase;
+            params['authentication-types'] = 'wpa2-psk';
+          }
+          await this.addWirelessInterface(params);
+          ssidInterfaces.push(ifaceName);
+        }
+        if (pkg !== 'wifi' && ssid.passphrase) {
+          warnings.push('Legacy wireless package: passphrase requires a security profile — the guest SSID was created OPEN. Assign a security profile manually if you need WPA2.');
+        }
+      }
+
+      // 2. Wire the new SSIDs into the L2 topology
+      const bridges = await this.getBridges();
+      if (vlanId) {
+        const mainBridge = bridges[0]?.['name'];
+        if (!mainBridge) throw new Error('No bridge found on this device to attach the guest VLAN to');
+        for (const iface of ssidInterfaces) {
+          await this.setInterfaceBridge(iface, mainBridge, vlanId);
+          await this.ensureVlanMembership(iface, vlanId);
+        }
+        // The bridge itself must be a tagged member so the L3 VLAN interface works
+        await this.ensureBridgeTaggedMember(mainBridge, vlanId);
+        // L3 VLAN interface the portal binds to
+        vlanInterface = `${name}-vlan${vlanId}`;
+        const vlans = await this.client.execute('/interface/vlan/print').catch(() => [] as Record<string, string>[]);
+        const existing = vlans.find(v => v['interface'] === mainBridge && v['vlan-id'] === String(vlanId));
+        if (existing) {
+          vlanInterface = existing['name'];
+        } else {
+          await this.client.execute('/interface/vlan/add', {
+            name: vlanInterface, 'vlan-id': String(vlanId), interface: mainBridge,
+          });
+        }
+        targetInterface = vlanInterface;
+        if (bridges[0]?.['vlan-filtering'] !== 'true') {
+          warnings.push(`Bridge "${mainBridge}" has VLAN filtering disabled — guest VLAN ${vlanId} tagging won't isolate traffic until you enable it (Ports → bridge → VLAN filtering). Enabling it can interrupt management access, so review trunk/tagged config first.`);
+        }
+      } else {
+        // Dedicated guest bridge keeps guests off the main LAN
+        const guestBridge = `${name}-br`;
+        if (!bridges.some(b => b['name'] === guestBridge)) {
+          await this.client.execute('/interface/bridge/add', { name: guestBridge });
+        }
+        for (const iface of ssidInterfaces) {
+          await this.setInterfaceBridge(iface, guestBridge);
+        }
+        targetInterface = guestBridge;
+      }
+    }
+
+    if (!targetInterface) throw new Error('No target interface — provide interfaceName or ssid');
+
+    // 3. Captive-portal chain on the target interface
+    const chain = await this.setupHotspot({
+      name, interfaceName: targetInterface,
+      gatewayCidr: opts.gatewayCidr, poolRange: opts.poolRange,
+      dnsName: opts.dnsName, rateLimit: opts.rateLimit,
+    });
+
+    // 4. Masquerade so guests can reach the internet
+    if (masquerade) {
+      const gwIp = opts.gatewayCidr.split('/')[0];
+      const prefix = opts.gatewayCidr.split('/')[1] || '24';
+      const network = `${this.networkAddressOf(gwIp, parseInt(prefix, 10))}/${prefix}`;
+      const natComment = `${name}-guest-masquerade`;
+      const natRules = await this.client.execute('/ip/firewall/nat/print').catch(() => [] as Record<string, string>[]);
+      if (!natRules.some(r => (r['comment'] || '') === natComment)) {
+        await this.client.execute('/ip/firewall/nat/add', {
+          chain: 'srcnat', action: 'masquerade', 'src-address': network, comment: natComment,
+        });
+      }
+    }
+
+    return { ...chain, targetInterface, ssidInterfaces, vlanInterface, warnings };
+  }
+
+  /** Ensure the bridge itself is a tagged member of a VLAN (needed for L3 VLAN interfaces). */
+  private async ensureBridgeTaggedMember(bridge: string, vlanId: number): Promise<void> {
+    const rows = await this.client
+      .execute('/interface/bridge/vlan/print', {}, [`?bridge=${bridge}`, `?vlan-ids=${vlanId}`])
+      .catch(() => [] as Record<string, string>[]);
+    const entry = rows[0];
+    if (entry?.['.id']) {
+      const tagged = (entry['tagged'] || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (!tagged.includes(bridge)) {
+        await this.client.execute('/interface/bridge/vlan/set', {
+          '.id': entry['.id'], tagged: [...tagged, bridge].join(','),
+        });
+      }
+    } else {
+      await this.client.execute('/interface/bridge/vlan/add', {
+        bridge, 'vlan-ids': String(vlanId), tagged: bridge,
+      });
+    }
+  }
+
+  /**
+   * Orchestrated guest-hotspot setup — the API equivalent of RouterOS's
+   * interactive `/ip hotspot setup` wizard. Creates (idempotently, keyed on the
+   * guest network name): IP pool → gateway address on the interface → DHCP
+   * server + network → hotspot profile → hotspot server → guest user profile.
+   * Returns the names it created so the route can report/rollback.
+   */
+  async setupHotspot(opts: {
+    name: string;            // logical name, e.g. "guest" → pool/profile/server names derive from it
+    interfaceName: string;   // bridge/vlan/wifi interface to run the portal on
+    gatewayCidr: string;     // e.g. "10.5.50.1/24" — address added to the interface
+    poolRange: string;       // e.g. "10.5.50.10-10.5.50.254"
+    dnsName?: string;        // portal hostname, e.g. "wifi.guest"
+    rateLimit?: string;      // default guest speed, e.g. "10M/10M" (rx/tx)
+  }): Promise<{ server: string; profile: string; userProfile: string; pool: string }> {
+    const { name, interfaceName, gatewayCidr, poolRange, dnsName, rateLimit } = opts;
+    const poolName = `${name}-pool`;
+    const profileName = `${name}-profile`;
+    const userProfileName = `${name}-guest`;
+    const gwIp = gatewayCidr.split('/')[0];
+
+    // 1. IP pool
+    const pools = await this.client.execute('/ip/pool/print').catch(() => []);
+    if (!pools.some(p => p['name'] === poolName)) {
+      await this.client.execute('/ip/pool/add', { name: poolName, ranges: poolRange });
+    }
+
+    // 2. Gateway address on the interface
+    const addrs = await this.client.execute('/ip/address/print').catch(() => []);
+    if (!addrs.some(a => (a['address'] || '') === gatewayCidr && (a['interface'] || '') === interfaceName)) {
+      await this.client.execute('/ip/address/add', { address: gatewayCidr, interface: interfaceName });
+    }
+
+    // 3. DHCP server + network
+    const dhcpServers = await this.client.execute('/ip/dhcp-server/print').catch(() => []);
+    if (!dhcpServers.some(s => s['name'] === `${name}-dhcp`)) {
+      await this.client.execute('/ip/dhcp-server/add', {
+        name: `${name}-dhcp`, interface: interfaceName, 'address-pool': poolName, disabled: 'no',
+      });
+    }
+    const prefix = gatewayCidr.split('/')[1] || '24';
+    const network = this.networkAddressOf(gwIp, parseInt(prefix, 10));
+    const dhcpNets = await this.client.execute('/ip/dhcp-server/network/print').catch(() => []);
+    if (!dhcpNets.some(n => (n['address'] || '') === `${network}/${prefix}`)) {
+      await this.client.execute('/ip/dhcp-server/network/add', {
+        address: `${network}/${prefix}`, gateway: gwIp, 'dns-server': gwIp,
+      });
+    }
+
+    // 4. Hotspot profile
+    const profiles = await this.getHotspotProfiles();
+    if (!profiles.some(p => p['name'] === profileName)) {
+      const params: Record<string, string> = {
+        name: profileName, 'hotspot-address': gwIp, 'login-by': 'http-chap,http-pap',
+      };
+      if (dnsName) params['dns-name'] = dnsName;
+      await this.addHotspotProfile(params);
+    }
+
+    // 5. Hotspot server
+    const servers = await this.getHotspotServers();
+    if (!servers.some(s => s['name'] === name)) {
+      await this.client.execute('/ip/hotspot/add', {
+        name, interface: interfaceName, 'address-pool': poolName, profile: profileName, disabled: 'no',
+      });
+    }
+
+    // 6. Guest user profile (bandwidth cap + no inter-guest traffic)
+    const userProfiles = await this.getHotspotUserProfiles();
+    if (!userProfiles.some(p => p['name'] === userProfileName)) {
+      const params: Record<string, string> = {
+        name: userProfileName, 'shared-users': '1',
+      };
+      if (rateLimit) params['rate-limit'] = rateLimit;
+      await this.addHotspotUserProfile(params);
+    }
+
+    return { server: name, profile: profileName, userProfile: userProfileName, pool: poolName };
+  }
+
+  /** Compute the network address for an IPv4 + prefix (e.g. 10.5.50.1/24 → 10.5.50.0). */
+  private networkAddressOf(ip: string, prefix: number): string {
+    const parts = ip.split('.').map(n => parseInt(n, 10));
+    if (parts.length !== 4 || parts.some(isNaN)) return ip;
+    const addr = ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+    const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+    const net = (addr & mask) >>> 0;
+    return [net >>> 24, (net >>> 16) & 255, (net >>> 8) & 255, net & 255].join('.');
   }
 
   // ─── IP Services (for security-posture audit + hardening) ───────────────────

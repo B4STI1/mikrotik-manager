@@ -6,6 +6,7 @@ import {
 import { wirelessApi } from '../services/api';
 import type { WirelessAP } from '../types';
 import RfHealth from '../components/wireless/RfHealth';
+import RogueApsCard from '../components/wireless/RogueApsCard';
 import clsx from 'clsx';
 
 function timeAgo(ts: string | undefined): string {
@@ -100,6 +101,9 @@ export default function WirelessPage() {
 
       {/* RF Health — channel map, density, TX retries, connectivity */}
       {aps.length > 0 && <RfHealth />}
+
+      {/* Rogue & neighbor AP detection (from stored AP scans) */}
+      {aps.length > 0 && <RogueApsCard />}
 
       {/* AP table */}
       <div className="card overflow-hidden">

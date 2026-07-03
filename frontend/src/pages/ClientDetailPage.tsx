@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { clientsApi, trafficApi, devicesApi } from '../services/api';
+import { CATEGORY_META, SELECTABLE_CATEGORIES } from '../utils/clientCategories';
 import type { ClientDetail } from '../services/api';
 import type { SignalPoint } from '../services/api';
 import clsx from 'clsx';
@@ -329,6 +330,15 @@ function ClientDetailsCard({ client, canWrite }: { client: ClientDetail; canWrit
     },
   });
 
+  const categoryMutation = useMutation({
+    mutationFn: (category: string | null) => clientsApi.updateCategory(client.mac_address, category),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['client-detail', client.mac_address] });
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['wireless-clients-page'] });
+    },
+  });
+
   const handleWol = async () => {
     setWolStatus('sending');
     try {
@@ -430,6 +440,36 @@ function ClientDetailsCard({ client, canWrite }: { client: ClientDetail; canWrit
         {client.vendor && (
           <DetailRow label="Vendor">{client.vendor}</DetailRow>
         )}
+
+        {/* Device category — auto-fingerprinted, user-overridable */}
+        <DetailRow label="Device type">
+          <div className="flex items-center gap-2 min-w-0">
+            {canWrite ? (
+              <select
+                className="input py-1 text-sm w-auto max-w-[220px]"
+                value={client.custom_category ?? ''}
+                onChange={(e) => categoryMutation.mutate(e.target.value === '' ? null : e.target.value)}
+                disabled={categoryMutation.isPending}
+              >
+                <option value="">
+                  Automatic — {CATEGORY_META[client.auto_category ?? 'unknown']?.label ?? 'Unknown'}
+                </option>
+                {SELECTABLE_CATEGORIES.filter(c => c !== 'unknown').map(c => (
+                  <option key={c} value={c}>{CATEGORY_META[c].label}</option>
+                ))}
+              </select>
+            ) : (
+              <span>{CATEGORY_META[client.device_category ?? 'unknown']?.label ?? 'Unknown'}</span>
+            )}
+            {client.custom_category && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex-shrink-0"
+                title={`Auto-detected as: ${CATEGORY_META[client.auto_category ?? 'unknown']?.label ?? 'Unknown'}`}>
+                manual
+              </span>
+            )}
+            {categoryMutation.isPending && <span className="text-xs text-gray-400">saving…</span>}
+          </div>
+        </DetailRow>
 
         <DetailRow label="Type">
           <span className={clsx(

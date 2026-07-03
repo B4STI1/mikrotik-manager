@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard, Router, Users, Bell, GitBranch, HardDrive,
   Settings, Network, ChevronLeft, ChevronRight, Layers, ChevronDown, SlidersHorizontal, X, Wifi,
-  Server, Globe, Clock, Shield, FileText, Activity, BarChart3,
+  Server, Globe, Clock, Shield, FileText, Activity, BarChart3, Ticket, ArrowUpCircle,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { APP_VERSION } from '../../version';
@@ -19,6 +19,7 @@ const navItems = [
   { to: '/events',    icon: Bell,            label: 'Events' },
   { to: '/topology',  icon: GitBranch,       label: 'Topology' },
   { to: '/backups',   icon: HardDrive,       label: 'Backups' },
+  { to: '/firmware',  icon: ArrowUpCircle,   label: 'Firmware' },
 ];
 
 const switchSubItems = [
@@ -34,6 +35,7 @@ const routerSubItems = [
 const wirelessSubItems = [
   { to: '/wireless',          icon: Wifi,              label: 'Overview' },
   { to: '/wireless/clients',  icon: Users,             label: 'Clients' },
+  { to: '/wireless/guest',    icon: Ticket,            label: 'Guest WiFi' },
   { to: '/wireless/settings', icon: SlidersHorizontal, label: 'Settings' },
 ];
 

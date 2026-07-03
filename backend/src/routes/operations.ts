@@ -248,6 +248,40 @@ router.get('/insights', async (_req: Request, res: Response) => {
     });
   }
 
+  // Rogue APs — evil twins broadcasting our SSIDs from foreign hardware
+  try {
+    const { classifyScans } = await import('../utils/rogueAp');
+    const [scans, radios, ifaceMacs] = await Promise.all([
+      query<{ device_id: number; device_name: string; scanned_at: string; data: unknown }>(`
+        SELECT DISTINCT ON (a.device_id) a.device_id, d.name AS device_name, a.scanned_at, a.data
+        FROM ap_scan_data a JOIN devices d ON d.id = a.device_id
+        ORDER BY a.device_id, a.scanned_at DESC`),
+      query<{ ssid: string | null; mac_address: string | null }>(`SELECT ssid, mac_address FROM wireless_interfaces`),
+      query<{ mac_address: string }>(`SELECT mac_address FROM interfaces WHERE mac_address IS NOT NULL`),
+    ]);
+    const ownSsids = new Set(radios.map(r => r.ssid || '').filter(Boolean));
+    const ownBssids = new Set([
+      ...radios.map(r => (r.mac_address || '').toLowerCase()).filter(Boolean),
+      ...ifaceMacs.map(r => r.mac_address.toLowerCase()),
+    ]);
+    const { rogues } = classifyScans(
+      scans.map(s => ({ deviceName: s.device_name, scannedAt: String(s.scanned_at), networks: Array.isArray(s.data) ? s.data as import('../utils/rogueAp').ScannedNetwork[] : [] })),
+      ownSsids, ownBssids
+    );
+    for (const r of rogues) {
+      attention.push({
+        sev: 'error', category: 'security',
+        title: `Rogue AP broadcasting "${r.ssid}"`,
+        body: `Foreign BSSID ${r.bssid}${r.vendor ? ` (${r.vendor})` : ''} at ${r.signal} dBm, seen by ${r.seenBy} — possible evil twin.`,
+        action: 'Open Wireless', path: '/wireless',
+      });
+    }
+  } catch { /* scan data unavailable */ }
+
+  // Baseline anomalies (client counts, CPU, error bursts)
+  const anomalies = await detectAnomalies();
+  for (const a of anomalies) attention.push(a);
+
   // Severity ordering: error → warn → info
   const sevRank: Record<Sev, number> = { error: 0, warn: 1, info: 2 };
   attention.sort((a, b) => sevRank[a.sev] - sevRank[b.sev]);
@@ -257,6 +291,121 @@ router.get('/insights', async (_req: Request, res: Response) => {
 
   res.json({ attention, capacity, activity });
 });
+
+// ─── Baseline anomaly detection ────────────────────────────────────────────────
+// Mist-style "this is unusual for you" insights: compare the last 30 minutes
+// against the same-hour-of-day baseline over the past 14 days (per device) and
+// flag deviations of ≥ 2.5 standard deviations. Conservative thresholds — an
+// insight should mean something.
+
+async function influxGroupValues(flux: string): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  try {
+    const api = getQueryApi();
+    await new Promise<void>((resolve, reject) => {
+      api.queryRows(flux, {
+        next(row, tableMeta) {
+          const o = tableMeta.toObject(row) as Record<string, unknown>;
+          const id = String(o['device_id'] || '');
+          if (id) out.set(id, Number(o['_value']) || 0);
+        },
+        error: reject,
+        complete: resolve,
+      });
+    });
+  } catch { /* influx unavailable */ }
+  return out;
+}
+
+async function detectAnomalies(): Promise<AttentionItem[]> {
+  const items: AttentionItem[] = [];
+  const hour = new Date().getUTCHours();
+  const nameById = new Map<string, { id: number; name: string }>();
+  const devices = await query<{ id: number; name: string }>(`SELECT id, name FROM devices`);
+  for (const d of devices) nameById.set(String(d.id), d);
+
+  const metric = async (measurement: string, field: string) => {
+    const base = `
+      from(bucket: "${bucket}")
+        |> range(start: -14d)
+        |> filter(fn: (r) => r["_measurement"] == "${measurement}")
+        |> filter(fn: (r) => r["_field"] == "${field}")
+        |> hourSelection(start: ${hour}, stop: ${hour})
+        |> group(columns: ["device_id"])`;
+    const [cur, mean, std] = await Promise.all([
+      influxGroupValues(`
+        from(bucket: "${bucket}")
+          |> range(start: -30m)
+          |> filter(fn: (r) => r["_measurement"] == "${measurement}")
+          |> filter(fn: (r) => r["_field"] == "${field}")
+          |> group(columns: ["device_id"])
+          |> mean()`),
+      influxGroupValues(`${base}\n  |> mean()`),
+      influxGroupValues(`${base}\n  |> stddev()`),
+    ]);
+    return { cur, mean, std };
+  };
+
+  // Client-count deviations (device dropped clients / unusual surge)
+  const cc = await metric('client_counts', 'total_clients');
+  for (const [id, current] of cc.cur) {
+    const m = cc.mean.get(id), s = cc.std.get(id);
+    const dev = nameById.get(id);
+    if (!dev || m === undefined || s === undefined || s < 1) continue;
+    const z = (current - m) / s;
+    if (Math.abs(z) >= 2.5 && Math.abs(current - m) >= 5) {
+      items.push({
+        sev: 'warn', category: 'anomaly',
+        title: `Client count on ${dev.name} is unusually ${z < 0 ? 'low' : 'high'}`,
+        body: `${Math.round(current)} clients now vs ~${Math.round(m)} typical for this hour (14-day baseline).`,
+        action: 'View device', path: `/devices/${dev.id}`,
+      });
+    }
+  }
+
+  // Sustained CPU deviations (only flag high — idle is not a problem)
+  const cpu = await metric('device_resources', 'cpu_load');
+  for (const [id, current] of cpu.cur) {
+    const m = cpu.mean.get(id), s = cpu.std.get(id);
+    const dev = nameById.get(id);
+    if (!dev || m === undefined || s === undefined || s < 1) continue;
+    const z = (current - m) / s;
+    if (z >= 2.5 && current >= 50) {
+      items.push({
+        sev: 'warn', category: 'anomaly',
+        title: `CPU on ${dev.name} is far above its baseline`,
+        body: `${Math.round(current)}% for the last 30m vs ~${Math.round(m)}% typical for this hour.`,
+        action: 'View device', path: `/devices/${dev.id}`,
+      });
+    }
+  }
+
+  // Error-log bursts (Postgres, hourly rate vs 7-day average)
+  const bursts = await query<{ device_id: number; name: string; cur: string; avg_hourly: string }>(`
+    WITH cur AS (
+      SELECT device_id, COUNT(*) AS n FROM events
+      WHERE severity = 'error' AND event_time > NOW() - INTERVAL '1 hour'
+      GROUP BY device_id
+    ), hist AS (
+      SELECT device_id, COUNT(*) / 168.0 AS avg_hourly FROM events
+      WHERE severity = 'error' AND event_time > NOW() - INTERVAL '7 days'
+      GROUP BY device_id
+    )
+    SELECT c.device_id, d.name, c.n AS cur, COALESCE(h.avg_hourly, 0) AS avg_hourly
+    FROM cur c JOIN devices d ON d.id = c.device_id
+    LEFT JOIN hist h ON h.device_id = c.device_id
+    WHERE c.n >= 10 AND c.n > 5 * GREATEST(COALESCE(h.avg_hourly, 0), 0.5)`);
+  for (const b of bursts) {
+    items.push({
+      sev: 'warn', category: 'anomaly',
+      title: `Error-log burst on ${b.name}`,
+      body: `${b.cur} error entries in the last hour (typically ~${Number(b.avg_hourly).toFixed(1)}/h).`,
+      action: 'Open Events', path: '/events',
+    });
+  }
+
+  return items;
+}
 
 // Recent activity merged from config snapshots, audit log, and events.
 async function buildActivity() {

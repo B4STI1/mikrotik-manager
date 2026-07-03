@@ -163,6 +163,68 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS custom_name VARCHAR(255);
 -- first_seen: when this client was first discovered ("connected since"); set once, preserved across polls
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS first_seen TIMESTAMPTZ;
 UPDATE clients SET first_seen = last_seen WHERE first_seen IS NULL;
+-- custom_category: user override of the fingerprinted device category
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS custom_category VARCHAR(30);
+
+-- Firmware orchestration: staged fleet upgrades in waves
+CREATE TABLE IF NOT EXISTS firmware_rollouts (
+  id              SERIAL PRIMARY KEY,
+  name            VARCHAR(100) NOT NULL,
+  status          VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending|running|completed|failed|cancelled
+  halt_on_failure BOOLEAN NOT NULL DEFAULT TRUE,
+  pre_backup      BOOLEAN NOT NULL DEFAULT TRUE,
+  scheduled_at    TIMESTAMPTZ,
+  started_at      TIMESTAMPTZ,
+  finished_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS firmware_rollout_devices (
+  id           SERIAL PRIMARY KEY,
+  rollout_id   INTEGER NOT NULL REFERENCES firmware_rollouts(id) ON DELETE CASCADE,
+  device_id    INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  wave         INTEGER NOT NULL DEFAULT 1,
+  status       VARCHAR(20) NOT NULL DEFAULT 'pending', -- pending|backing_up|upgrading|rebooting|verifying|success|failed|skipped
+  from_version VARCHAR(30),
+  to_version   VARCHAR(30),
+  error        TEXT,
+  started_at   TIMESTAMPTZ,
+  finished_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_fw_rollout_devices ON firmware_rollout_devices(rollout_id, wave, id);
+
+-- Platform & automation: scoped API tokens, outbound webhooks, scheduled reports
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id           SERIAL PRIMARY KEY,
+  name         VARCHAR(100) NOT NULL,
+  token_hash   VARCHAR(64) NOT NULL UNIQUE,
+  prefix       VARCHAR(12) NOT NULL,
+  scope        VARCHAR(10) NOT NULL DEFAULT 'read', -- read|write
+  created_by   VARCHAR(50),
+  last_used_at TIMESTAMPTZ,
+  expires_at   TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS webhooks (
+  id            SERIAL PRIMARY KEY,
+  name          VARCHAR(100) NOT NULL,
+  url           TEXT NOT NULL,
+  secret        VARCHAR(128),
+  events        TEXT[] NOT NULL DEFAULT '{}',
+  enabled       BOOLEAN NOT NULL DEFAULT TRUE,
+  last_status   INTEGER,
+  last_fired_at TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS report_schedules (
+  id           SERIAL PRIMARY KEY,
+  name         VARCHAR(100) NOT NULL,
+  frequency    VARCHAR(10) NOT NULL DEFAULT 'weekly', -- daily|weekly|monthly
+  recipients   TEXT NOT NULL,
+  enabled      BOOLEAN NOT NULL DEFAULT TRUE,
+  last_sent_at TIMESTAMPTZ,
+  next_run_at  TIMESTAMPTZ NOT NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
 ALTER TABLE events ADD COLUMN IF NOT EXISTS log_id VARCHAR(20);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_device_log_id ON events(device_id, log_id);
 ALTER TABLE topology_links ADD COLUMN IF NOT EXISTS neighbor_mac VARCHAR(17);

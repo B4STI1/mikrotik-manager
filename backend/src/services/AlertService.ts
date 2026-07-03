@@ -97,6 +97,17 @@ export class AlertService {
       if (now < until) return;
       cooldownUntil.set(cooldownKey, now + cooldownMs);
 
+      // Outbound webhooks fan out on the same (rule-gated, cooldown-respecting)
+      // event stream, independent of whether any alert channels are configured.
+      void import('./WebhookService').then(({ webhookService }) =>
+        webhookService.dispatch(eventType, {
+          message,
+          device_id: ctx.deviceId ?? null,
+          device_name: ctx.deviceName ?? null,
+          details: ctx.details ?? null,
+        })
+      ).catch(() => {});
+
       // Get enabled channels
       const channels = await query<AlertChannel>(
         `SELECT * FROM alert_channels WHERE enabled = true ORDER BY id`
