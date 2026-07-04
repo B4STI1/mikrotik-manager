@@ -80,7 +80,7 @@ export async function createDeviceFromBody(
     credential_preset_id,
   } = input;
 
-  let preset: Awaited<ReturnType<typeof loadCredentialPreset>> = null;
+  let preset: Awaited<ReturnType<typeof loadCredentialPreset>>;
   try {
     preset = await loadCredentialPreset(credential_preset_id ?? null, ctx);
   } catch (err) {
@@ -107,7 +107,7 @@ export async function createDeviceFromBody(
   }
 
   const testClient = new RouterOSClient(ip_address, api_port, api_username, api_password, 10_000);
-  let detectedSerial: string | null = null;
+  let detectedSerial: string | null;
   try {
     await testClient.connect();
     const rb = await testClient.execute('/system/routerboard/print').catch(() => [] as Record<string, string>[]);

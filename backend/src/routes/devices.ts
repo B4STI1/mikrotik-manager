@@ -369,7 +369,7 @@ router.put('/:id', requireWrite, async (req: Request, res: Response) => {
   );
   if (!existing) return res.status(404).json({ error: 'Device not found' });
 
-  let preset: Awaited<ReturnType<typeof loadCredentialPreset>> = null;
+  let preset: Awaited<ReturnType<typeof loadCredentialPreset>>;
   try {
     preset = await loadCredentialPreset(credential_preset_id ?? null, {
       requestingUserRole: req.user?.role,

@@ -78,7 +78,7 @@ export class WebhookService {
     if (hook.secret) {
       headers['X-MTM-Signature'] = 'sha256=' + createHmac('sha256', hook.secret).update(body).digest('hex');
     }
-    let status = 0;
+    let status: number;
     try {
       status = await postJson(hook.url, body, headers);
     } catch (e) {

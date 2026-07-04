@@ -91,7 +91,7 @@ router.get('/', async (req: Request, res: Response) => {
     LEFT JOIN client_traffic_daily ctd
       ON ctd.mac_address = LOWER(deduped.mac_address) AND ctd.day = CURRENT_DATE
     ${orderBy}
-    LIMIT $${idx++} OFFSET $${idx++}
+    LIMIT $${idx++} OFFSET $${idx}
   `;
   const clients = await query(sql, [...filterParams, parseInt(String(limit), 10), parseInt(String(offset), 10)]);
 
