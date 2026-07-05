@@ -211,4 +211,5 @@ Write-Host "`r`n✅ Script 'deploy-debian.ps1' créé avec succès à : $($PWD.F
 # Fin du script de déploiement
 $finalScript | Set-Content -Path $deployScriptFile
     
-Write-Host "`r`n✅ Script 'deploy-debian.ps1' créé avec succès!" -ForegroundColor Green
+Write-Host "`r`n✅ Script 'deploy-debian.ps1' créé avec succès!" -ForegroundColor Greenssh user@192.168.1.186 "mkdir -p /home/user/app/mm/mikrotik-manager/config/data/logs/backups/uploads" > NUL
+ssh user@192.168.1.186 "mkdir -p /home/user/app/mm/mikrotik-manager/config/data/logs/backups/uploads" > NUL
