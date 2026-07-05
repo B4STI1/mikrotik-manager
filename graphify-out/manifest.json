@@ -1,0 +1,917 @@
+{
+  "backend/eslint.config.mjs": {
+    "mtime": 1783168679.567849,
+    "ast_hash": "7c20db29d2d8dd3431a11745828b3ea6",
+    "semantic_hash": ""
+  },
+  "backend/jest.config.js": {
+    "mtime": 1783168679.567849,
+    "ast_hash": "b94a101bf1fa664b781a16e4934bf0c3",
+    "semantic_hash": ""
+  },
+  "backend/package.json": {
+    "mtime": 1783171963.406026,
+    "ast_hash": "19a9907a9864e414128a5175b80f5089",
+    "semantic_hash": ""
+  },
+  "backend/src/config/database.ts": {
+    "mtime": 1783168679.5698526,
+    "ast_hash": "268c41c4448441ba87e5fdba8bd24fec",
+    "semantic_hash": ""
+  },
+  "backend/src/config/influxdb.ts": {
+    "mtime": 1783168679.5708525,
+    "ast_hash": "557f1ad48bcaa063c19ba9103f9a6b16",
+    "semantic_hash": ""
+  },
+  "backend/src/config/redis.ts": {
+    "mtime": 1783168679.5708525,
+    "ast_hash": "0bd84debeffdb5ec00d0ec3ee419efb0",
+    "semantic_hash": ""
+  },
+  "backend/src/db/migrate.ts": {
+    "mtime": 1783168679.5708525,
+    "ast_hash": "2f854c897f8c11feb4246de12edaedc6",
+    "semantic_hash": ""
+  },
+  "backend/src/index.ts": {
+    "mtime": 1783168679.5708525,
+    "ast_hash": "d30a719e681f0d9d4967da167f4598d0",
+    "semantic_hash": ""
+  },
+  "backend/src/middleware/__tests__/auth.test.ts": {
+    "mtime": 1783168679.5718534,
+    "ast_hash": "c943e5f6c9f9a59865248c6999a090fa",
+    "semantic_hash": ""
+  },
+  "backend/src/middleware/auditMiddleware.ts": {
+    "mtime": 1783168679.5718534,
+    "ast_hash": "c3e62cdcf45acc0dd66ed813a2463927",
+    "semantic_hash": ""
+  },
+  "backend/src/middleware/auth.ts": {
+    "mtime": 1783168679.5718534,
+    "ast_hash": "d383f4c064eec36bfa66527e042a0870",
+    "semantic_hash": ""
+  },
+  "backend/src/middleware/errorHandler.ts": {
+    "mtime": 1783168679.5718534,
+    "ast_hash": "14e6cc7c07347c9dc2c519240756487a",
+    "semantic_hash": ""
+  },
+  "backend/src/middleware/rateLimitRedis.ts": {
+    "mtime": 1783168679.5718534,
+    "ast_hash": "ca9f920f95027550c3170631f71375f2",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/__tests__/credentialPresets.test.ts": {
+    "mtime": 1783168679.5718534,
+    "ast_hash": "a8a00b30b66752c59966ee0845d5af1a",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/alerts.ts": {
+    "mtime": 1783168679.572854,
+    "ast_hash": "9df4d72eb2d968e7a7341a376aae5113",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/auditLog.ts": {
+    "mtime": 1783168679.572854,
+    "ast_hash": "c1881c66cdc8205b22b506795199e99e",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/auth.ts": {
+    "mtime": 1783168679.572854,
+    "ast_hash": "5d1ff9422976efcc98218ece2748b800",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/automation.ts": {
+    "mtime": 1783168679.572854,
+    "ast_hash": "91a00025b3eba0c73f39faa22db76463",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/backups.ts": {
+    "mtime": 1783168679.5738533,
+    "ast_hash": "0231d6cc0b650a1a83d0b71d96917486",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/cert.ts": {
+    "mtime": 1783168679.5738533,
+    "ast_hash": "7a1fd38a2614818a4cf3892a8ad623cc",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/clients.ts": {
+    "mtime": 1783168679.5748532,
+    "ast_hash": "50a393ad1ce49f7de96eb2900a7b0c1f",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/configHistory.ts": {
+    "mtime": 1783168679.5748532,
+    "ast_hash": "4754cdc24ca4db312618fe06bd592cef",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/configTemplates.ts": {
+    "mtime": 1783168679.5748532,
+    "ast_hash": "a8a14d5c61f835340f2febb54db84243",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/credentialPresets.ts": {
+    "mtime": 1783168679.5748532,
+    "ast_hash": "5ae68dfcf529674eee387c4705bf70e1",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/devices.ts": {
+    "mtime": 1783168679.5758533,
+    "ast_hash": "3e2c814786b8c9ec82defc5140436cbf",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/events.ts": {
+    "mtime": 1783168679.5758533,
+    "ast_hash": "ce861d9873b79c13bac04c4954933e51",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/firmware.ts": {
+    "mtime": 1783168679.5758533,
+    "ast_hash": "cdc90e4acbd44e9ebd458b10e3a51764",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/guestWifi.ts": {
+    "mtime": 1783168679.5768533,
+    "ast_hash": "2cef1219c37275c51287656c15d39df3",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/maintenanceWindows.ts": {
+    "mtime": 1783168679.5768533,
+    "ast_hash": "72ec1985242027df452accdeff3f10d4",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/metrics.ts": {
+    "mtime": 1783168679.5768533,
+    "ast_hash": "c9b1c00199354471fd97215275e09402",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/networkServices.ts": {
+    "mtime": 1783168679.5778844,
+    "ast_hash": "76b9677ef6374256172eec6c7fe3c3b9",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/operations.ts": {
+    "mtime": 1783168679.5778844,
+    "ast_hash": "4590725bd15cec16a9244c60eb1719a2",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/routers.ts": {
+    "mtime": 1783168679.5778844,
+    "ast_hash": "3252994af25852d08750ea16146e0202",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/search.ts": {
+    "mtime": 1783168679.5778844,
+    "ast_hash": "741a50f31c6d4c0e3eab580717a269af",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/settings.ts": {
+    "mtime": 1783168679.5788894,
+    "ast_hash": "67b8590c5a65139f5ffa26671f092230",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/switches.ts": {
+    "mtime": 1783168679.5788894,
+    "ast_hash": "466e806de5f3091fda21a333806309d8",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/system.ts": {
+    "mtime": 1783168679.5788894,
+    "ast_hash": "c316bb8e0a414b8a30ea13e37668697b",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/tags.ts": {
+    "mtime": 1783168679.5788894,
+    "ast_hash": "63ae62ce922e4ba498e81bae922606e6",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/topology.ts": {
+    "mtime": 1783168679.5798886,
+    "ast_hash": "00d4390df355e8daee8036d670ddb9ed",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/trafficAnalytics.ts": {
+    "mtime": 1783168679.5798886,
+    "ast_hash": "e02d8c8f13d87c2c6179b931d88f154c",
+    "semantic_hash": ""
+  },
+  "backend/src/routes/wireless.ts": {
+    "mtime": 1783168679.5798886,
+    "ast_hash": "c4eefc04caceb576230c40a912a65ed6",
+    "semantic_hash": ""
+  },
+  "backend/src/services/AlertService.ts": {
+    "mtime": 1783168679.5798886,
+    "ast_hash": "96ea7fd9b7a35a611e5ce2d0a7b11368",
+    "semantic_hash": ""
+  },
+  "backend/src/services/BackupService.ts": {
+    "mtime": 1783168679.580889,
+    "ast_hash": "ea3131bce0b8739665a073fc3dd8a0cb",
+    "semantic_hash": ""
+  },
+  "backend/src/services/DeviceBulkAddWorker.ts": {
+    "mtime": 1783168679.580889,
+    "ast_hash": "9d6678e2efaf5840810b40c100f6b02f",
+    "semantic_hash": ""
+  },
+  "backend/src/services/FirmwareOrchestrator.ts": {
+    "mtime": 1783168679.580889,
+    "ast_hash": "84a8ac5ae5a17a03a25d157c3d944f22",
+    "semantic_hash": ""
+  },
+  "backend/src/services/PollerService.ts": {
+    "mtime": 1783168679.5818896,
+    "ast_hash": "189f071b332c48f73a1627409599dfbb",
+    "semantic_hash": ""
+  },
+  "backend/src/services/ReportService.ts": {
+    "mtime": 1783168679.5818896,
+    "ast_hash": "9ef3cf1ad4707512427b2dc27ed58bf1",
+    "semantic_hash": ""
+  },
+  "backend/src/services/WebhookService.ts": {
+    "mtime": 1783168679.5828888,
+    "ast_hash": "85e287a39c0cff882cf7e190c26bd895",
+    "semantic_hash": ""
+  },
+  "backend/src/services/__tests__/AlertService.test.ts": {
+    "mtime": 1783168679.5828888,
+    "ast_hash": "f9c1dd7eacb203574852ea77242ef01b",
+    "semantic_hash": ""
+  },
+  "backend/src/services/deviceCreation.ts": {
+    "mtime": 1783168679.5828888,
+    "ast_hash": "2d7db7dd69a4df3ec9b40088127a0d62",
+    "semantic_hash": ""
+  },
+  "backend/src/services/mikrotik/DeviceCollector.ts": {
+    "mtime": 1783168679.5838897,
+    "ast_hash": "fc10bff8420a710f81d86aec9adf03d1",
+    "semantic_hash": ""
+  },
+  "backend/src/services/mikrotik/RouterOSClient.ts": {
+    "mtime": 1783168679.5848897,
+    "ast_hash": "7d43e81386d770a298554531b15f01c9",
+    "semantic_hash": ""
+  },
+  "backend/src/services/mikrotik/__tests__/DeviceCollector.test.ts": {
+    "mtime": 1783168679.5848897,
+    "ast_hash": "b5ea5baa0703c674f69b4b5ae0569d56",
+    "semantic_hash": ""
+  },
+  "backend/src/services/netflow/FlowAggregator.ts": {
+    "mtime": 1783168679.5848897,
+    "ast_hash": "62c5bb308c89bc6bc6299d4682bfc6b1",
+    "semantic_hash": ""
+  },
+  "backend/src/services/netflow/NetflowCollector.ts": {
+    "mtime": 1783168679.5848897,
+    "ast_hash": "083e607b4acbd9d006e5c3e091cc6def",
+    "semantic_hash": ""
+  },
+  "backend/src/services/netflow/__tests__/aggregator.test.ts": {
+    "mtime": 1783168679.5848897,
+    "ast_hash": "d6e7da9378464a4f991f2bf357e4eb25",
+    "semantic_hash": ""
+  },
+  "backend/src/services/netflow/__tests__/decoder.test.ts": {
+    "mtime": 1783168679.5858889,
+    "ast_hash": "979ae544efcc9e6880d9c74a75a0fc3e",
+    "semantic_hash": ""
+  },
+  "backend/src/services/netflow/appCategories.ts": {
+    "mtime": 1783168679.5858889,
+    "ast_hash": "e71d0667318c0402da876e40d9dcb950",
+    "semantic_hash": ""
+  },
+  "backend/src/services/netflow/decoder.ts": {
+    "mtime": 1783168679.5858889,
+    "ast_hash": "4f08c68bc6ea86ab5d6d731812010a5f",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/__tests__/clientFingerprint.test.ts": {
+    "mtime": 1783168679.5868888,
+    "ast_hash": "19cb8d6a62ee1e30c5da2f1e85734625",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/__tests__/corsOrigins.test.ts": {
+    "mtime": 1783168679.5868888,
+    "ast_hash": "0041e6f70ef5d2c20e032d2c1413b1ba",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/__tests__/crypto.test.ts": {
+    "mtime": 1783168679.5868888,
+    "ast_hash": "1dbfa5e7a43e188fbd847169ed8807e4",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/__tests__/firewallSafety.test.ts": {
+    "mtime": 1783168679.5868888,
+    "ast_hash": "68c56c47b95ae3c1b3494e968d05838a",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/__tests__/oui.test.ts": {
+    "mtime": 1783168679.5879514,
+    "ast_hash": "f487a2d9bfd446036d4a87de40d26d5e",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/__tests__/parsePort.test.ts": {
+    "mtime": 1783168679.5879514,
+    "ast_hash": "c2694f6922057c4746bdea556618c3c8",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/__tests__/rogueAp.test.ts": {
+    "mtime": 1783168679.5879514,
+    "ast_hash": "576bd36813e9032b5632d2524ad90a63",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/clientFingerprint.ts": {
+    "mtime": 1783168679.5889554,
+    "ast_hash": "418ef29a98fc0d94ab6b6e9300a2e6d2",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/corsOrigins.ts": {
+    "mtime": 1783168679.5889554,
+    "ast_hash": "9779c0be5e569b0a8dfd4536ca671e21",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/crypto.ts": {
+    "mtime": 1783168679.5889554,
+    "ast_hash": "92490f763c3bf6e1b9245706ff89eb0f",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/firewallSafety.ts": {
+    "mtime": 1783168679.5889554,
+    "ast_hash": "f1fea620db73e3722ffd6d5a00403102",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/oui.ts": {
+    "mtime": 1783168679.5899549,
+    "ast_hash": "f6672c0615511e7ebb5a001aae068be7",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/parsePort.ts": {
+    "mtime": 1783168679.5899549,
+    "ast_hash": "af5b4e2e735ef3a6c73eb594c8a82a42",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/rogueAp.ts": {
+    "mtime": 1783168679.5899549,
+    "ast_hash": "2edaa08fbb9708ca70679db6929378aa",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/safeClientError.ts": {
+    "mtime": 1783168679.5909564,
+    "ast_hash": "c5aede02fce5c63cbb0a0bd261502a71",
+    "semantic_hash": ""
+  },
+  "backend/src/utils/serverArp.ts": {
+    "mtime": 1783168679.5909564,
+    "ast_hash": "1af1b9732d27bfdca15cde58c0b265a9",
+    "semantic_hash": ""
+  },
+  "backend/tsconfig.json": {
+    "mtime": 1783168679.5909564,
+    "ast_hash": "534517b96918cdcd21ac528ba5a070cb",
+    "semantic_hash": ""
+  },
+  "frontend/eslint.config.js": {
+    "mtime": 1783168679.591956,
+    "ast_hash": "1f0b1679c1bc86b039b8891a7ef93170",
+    "semantic_hash": ""
+  },
+  "frontend/package.json": {
+    "mtime": 1783168679.5929554,
+    "ast_hash": "f5a2cbefee656e8e78f5f08bb19b361e",
+    "semantic_hash": ""
+  },
+  "frontend/postcss.config.js": {
+    "mtime": 1783168679.5929554,
+    "ast_hash": "33fad9c02cb0ec6d6030369ef6347d57",
+    "semantic_hash": ""
+  },
+  "frontend/src/App.tsx": {
+    "mtime": 1783168679.5949557,
+    "ast_hash": "68c52b3bd032f26701e01075e1bbd8d0",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/CircuitBackground.tsx": {
+    "mtime": 1783168679.5949557,
+    "ast_hash": "d544b0209831e34a8285b741c5f9db66",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/SecurityBanners.tsx": {
+    "mtime": 1783168679.5949557,
+    "ast_hash": "a4a765393bfb7abdf9bfcdb6f72fcf05",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/TerminalModal.tsx": {
+    "mtime": 1783168679.5949557,
+    "ast_hash": "ff76c6d006d09f81ce558194552b018b",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/ConfigHistoryTab.tsx": {
+    "mtime": 1783168679.5963523,
+    "ast_hash": "a9d793a6359624cd3c56ab63607ad1de",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/ConnectionsTab.tsx": {
+    "mtime": 1783168679.5968566,
+    "ast_hash": "ea4d91b0d788a21f499b45bba87a4ce8",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/CopyVlanModal.tsx": {
+    "mtime": 1783168679.5968566,
+    "ast_hash": "eccb598137108291ff53ca5384e14c96",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/DeviceLocationSection.tsx": {
+    "mtime": 1783168679.5968566,
+    "ast_hash": "8562ccc33ea5ea0fcfca22ba259f1729",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/FirewallTab.tsx": {
+    "mtime": 1783168679.5968566,
+    "ast_hash": "202404fbef35ae8cbaae5c063ae604ec",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/GraphsTab.tsx": {
+    "mtime": 1783168679.597861,
+    "ast_hash": "1ce00b411b55cb886abe3f9df895e357",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/HardwareTab.tsx": {
+    "mtime": 1783168679.5988622,
+    "ast_hash": "227709619afba28ee2be3a3dd8b59f8f",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/InterfacesTab.tsx": {
+    "mtime": 1783168679.5988622,
+    "ast_hash": "8d40fc58f099fcfec4e66d5530ea786f",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/QueuesTab.tsx": {
+    "mtime": 1783168679.5998614,
+    "ast_hash": "266df9ca18fc6d5485bd1d3b0c841dc8",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/RadiosTab.tsx": {
+    "mtime": 1783168679.5998614,
+    "ast_hash": "ab918da5d1d3408f40450ae2e9a58ed3",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/RoutingTab.tsx": {
+    "mtime": 1783168679.5998614,
+    "ast_hash": "a4bfea85d3dd8d9ed4e78809f654a4ee",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/SecurityTab.tsx": {
+    "mtime": 1783168679.5998614,
+    "ast_hash": "dce107b650ed2d9bb5a1f6e6cf04bfa8",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/SystemConfigTab.tsx": {
+    "mtime": 1783168679.6008613,
+    "ast_hash": "e8bb1f96e58da16dfc9e04f4ed88cfdf",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/ToolsTab.tsx": {
+    "mtime": 1783168679.6008613,
+    "ast_hash": "2f263367106a061445f1011ff224abcf",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/device-detail/VlansTab.tsx": {
+    "mtime": 1783168679.6008613,
+    "ast_hash": "1a5f19b850fd0a68e11753125f06e265",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/devices/AddDeviceModal.tsx": {
+    "mtime": 1783168679.6008613,
+    "ast_hash": "a61e9e70b023443b159512a2cbdef553",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/devices/ConfirmDuplicateModal.tsx": {
+    "mtime": 1783168679.6018627,
+    "ast_hash": "16ad16a8dc133e2d2e084a6786d79364",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/devices/EditDeviceModal.tsx": {
+    "mtime": 1783168679.6018627,
+    "ast_hash": "1f8f9c84cab9b786759f107f3ec1e966",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/devices/TryAllDiscoveredModal.tsx": {
+    "mtime": 1783168679.6018627,
+    "ast_hash": "3e947f99cfb447c6f4f0b29d02f5c3fc",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/layout/AppLayout.tsx": {
+    "mtime": 1783168679.6018627,
+    "ast_hash": "2fd71dfe6806688a7e2ece9b5ac0d3aa",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/layout/GlobalSearch.tsx": {
+    "mtime": 1783168679.6018627,
+    "ast_hash": "03f8ae473746feecd4dd33ff6219b2d3",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/layout/Sidebar.tsx": {
+    "mtime": 1783168679.6028626,
+    "ast_hash": "741f33edbe37275773ca0b6ab1a5053b",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/layout/TopBar.tsx": {
+    "mtime": 1783168679.6028626,
+    "ast_hash": "b1571aa19e33bb18f927bd1bf1c0fee7",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ports/SwitchPortDiagram.tsx": {
+    "mtime": 1783168679.603861,
+    "ast_hash": "261d2b598bfb66b4c0421b3f8fad2ab1",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/settings/AutomationSettings.tsx": {
+    "mtime": 1783168679.603861,
+    "ast_hash": "0a9ba15caaf76f9f48f2c8defe7c98f5",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/settings/CredentialPresetsSettings.tsx": {
+    "mtime": 1783168679.6048615,
+    "ast_hash": "b66db15be20c97671d64c6b2fa197d5f",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/wireless/RfHealth.tsx": {
+    "mtime": 1783168679.6048615,
+    "ast_hash": "0c364fe1fe547d79e56866f4a0dcd36d",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/wireless/RogueApsCard.tsx": {
+    "mtime": 1783168679.6048615,
+    "ast_hash": "b0ce4352e8bd09611bc6b4f397d065ff",
+    "semantic_hash": ""
+  },
+  "frontend/src/hooks/useCanWrite.ts": {
+    "mtime": 1783168679.6058612,
+    "ast_hash": "9d67f78663be3028a7e501671e10962c",
+    "semantic_hash": ""
+  },
+  "frontend/src/hooks/useSocket.ts": {
+    "mtime": 1783168679.6058612,
+    "ast_hash": "7863f451c3e85c4662fb02f26d45726b",
+    "semantic_hash": ""
+  },
+  "frontend/src/main.tsx": {
+    "mtime": 1783168679.6058612,
+    "ast_hash": "416032dab01abcf4b662acabe6431476",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/BackupsPage.tsx": {
+    "mtime": 1783168679.6068628,
+    "ast_hash": "fbd40158a28841d22f1576458a08cf1e",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/ClientDetailPage.tsx": {
+    "mtime": 1783168679.6068628,
+    "ast_hash": "3d32a403738c211ef360cae98a66cfe5",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/ClientsPage.tsx": {
+    "mtime": 1783168679.6068628,
+    "ast_hash": "bbf95d2481031a95611be6f4a5e4ff57",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/DashboardPage.tsx": {
+    "mtime": 1783168679.6082644,
+    "ast_hash": "e40970e54becfdfed6a04380c4b9951e",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/DeviceDetailPage.tsx": {
+    "mtime": 1783168679.6082644,
+    "ast_hash": "8b56b243c6467812a5e305f301329f60",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/DevicesPage.tsx": {
+    "mtime": 1783168679.6092699,
+    "ast_hash": "895ebdc0f1dbd4dccc46c6ad4f3c982b",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/EventsPage.tsx": {
+    "mtime": 1783168679.6092699,
+    "ast_hash": "ebba3fa4713efdd11f89457e314836c4",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/FirmwarePage.tsx": {
+    "mtime": 1783168679.6092699,
+    "ast_hash": "bdf45a4830ad1e08fe40dcf73aaa980f",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/GuestWifiPage.tsx": {
+    "mtime": 1783168679.6092699,
+    "ast_hash": "18d3c6f50895093517ccff8a9978b761",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/LoginPage.tsx": {
+    "mtime": 1783168679.6102686,
+    "ast_hash": "9fce1b69b9ae31d499e70245e009217c",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/NetworkServicesDHCPPage.tsx": {
+    "mtime": 1783168679.6102686,
+    "ast_hash": "33166b5cc6cd95eb57ce5b686bdc5a90",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/NetworkServicesDNSPage.tsx": {
+    "mtime": 1783168679.6102686,
+    "ast_hash": "1ab05f9a05f71349c5a7721dc6713f44",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/NetworkServicesDiscoveryPage.tsx": {
+    "mtime": 1783168679.6112702,
+    "ast_hash": "17927f1142b5a0a6e903f47bd573f7da",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/NetworkServicesNTPPage.tsx": {
+    "mtime": 1783168679.6112702,
+    "ast_hash": "91b5fd6e2cf3cf872fdc72006075a820",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/NetworkServicesNetflowPage.tsx": {
+    "mtime": 1783168679.6112702,
+    "ast_hash": "688e1df2a0d8c5b1938a3dcb8ce12df1",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/NetworkServicesOverviewPage.tsx": {
+    "mtime": 1783168679.6112702,
+    "ast_hash": "a6b4f15ba0c5d30f77913e866dc91f52",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/NetworkServicesSyslogPage.tsx": {
+    "mtime": 1783168679.6122694,
+    "ast_hash": "1a743b1bff3625de4bdb145f42a34070",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/NetworkServicesWireGuardPage.tsx": {
+    "mtime": 1783168679.6122694,
+    "ast_hash": "93cffa1ab4276f0382b6be37af2d0a70",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/SecurityPage.tsx": {
+    "mtime": 1783168679.6122694,
+    "ast_hash": "7fe0ca521e466cfcb58c4fcc95179373",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/SettingsPage.tsx": {
+    "mtime": 1783168679.6132686,
+    "ast_hash": "cc11a41ad295dd61fc6fc12cc70c5d98",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/TopologyPage.tsx": {
+    "mtime": 1783168679.6132686,
+    "ast_hash": "89f7d1c6fd9903d231daff6872f57de5",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/TrafficAnalyticsPage.tsx": {
+    "mtime": 1783168679.6142688,
+    "ast_hash": "24e07c37c7d2507476cda63e169b260f",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/WirelessPage.tsx": {
+    "mtime": 1783168679.6142688,
+    "ast_hash": "43e2e657bb2e9e32b6589b15f944804f",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/WirelessSettingsPage.tsx": {
+    "mtime": 1783168679.6152697,
+    "ast_hash": "64d7394f32c26cf5e1e6b225e7add2e8",
+    "semantic_hash": ""
+  },
+  "frontend/src/services/api.ts": {
+    "mtime": 1783168679.6152697,
+    "ast_hash": "8e65e6841cef6b6741e38555f0121b8b",
+    "semantic_hash": ""
+  },
+  "frontend/src/store/authStore.ts": {
+    "mtime": 1783168679.6152697,
+    "ast_hash": "4f92186ae392df8c0dd57c7845243287",
+    "semantic_hash": ""
+  },
+  "frontend/src/store/themeStore.ts": {
+    "mtime": 1783168679.6167746,
+    "ast_hash": "60cf5d532db199f9018e8074025323f4",
+    "semantic_hash": ""
+  },
+  "frontend/src/types/index.ts": {
+    "mtime": 1783168679.6167746,
+    "ast_hash": "90d0c2283cf19158593c497aa6bcbcf0",
+    "semantic_hash": ""
+  },
+  "frontend/src/utils/backupSchedule.ts": {
+    "mtime": 1783168679.6167746,
+    "ast_hash": "280678c82665a6154e0c0427024a7fac",
+    "semantic_hash": ""
+  },
+  "frontend/src/utils/clientCategories.ts": {
+    "mtime": 1783168679.61778,
+    "ast_hash": "d5d21a0546355ed223900d9382dacab5",
+    "semantic_hash": ""
+  },
+  "frontend/src/utils/firewallSummary.test.ts": {
+    "mtime": 1783168679.61778,
+    "ast_hash": "70556df11adecfed32c12aa07682133a",
+    "semantic_hash": ""
+  },
+  "frontend/src/utils/firewallSummary.ts": {
+    "mtime": 1783168679.61778,
+    "ast_hash": "f4d058d4c9b09a508d082cc4e5c5c058",
+    "semantic_hash": ""
+  },
+  "frontend/src/utils/lineDiff.ts": {
+    "mtime": 1783168679.61778,
+    "ast_hash": "000aa4bba471ecf4467914a0f15359d1",
+    "semantic_hash": ""
+  },
+  "frontend/src/utils/parsePort.test.ts": {
+    "mtime": 1783168679.6187813,
+    "ast_hash": "fd9f73386b87c3b7cd437318f97e2184",
+    "semantic_hash": ""
+  },
+  "frontend/src/utils/parsePort.ts": {
+    "mtime": 1783168679.6187813,
+    "ast_hash": "bca06c31ccbb490bfaafce961cabfe4c",
+    "semantic_hash": ""
+  },
+  "frontend/src/utils/wifiChannels.ts": {
+    "mtime": 1783168679.6197815,
+    "ast_hash": "dd3f496e80115379ef55dbf9c58188e4",
+    "semantic_hash": ""
+  },
+  "frontend/src/version.ts": {
+    "mtime": 1783168679.6197815,
+    "ast_hash": "42a1fd10321fc642961e41ac4ee0a6a5",
+    "semantic_hash": ""
+  },
+  "frontend/tailwind.config.js": {
+    "mtime": 1783168679.6207814,
+    "ast_hash": "cef7b02c1e7680e40fea6b9ed6e212e1",
+    "semantic_hash": ""
+  },
+  "frontend/tsconfig.json": {
+    "mtime": 1783168679.6207814,
+    "ast_hash": "072e4cc9b629fc81837dd1d86c4a6a51",
+    "semantic_hash": ""
+  },
+  "frontend/tsconfig.node.json": {
+    "mtime": 1783168679.6207814,
+    "ast_hash": "281e378713152cccc7860c818db55849",
+    "semantic_hash": ""
+  },
+  "frontend/vite.config.ts": {
+    "mtime": 1783168679.62178,
+    "ast_hash": "c4dac18f846108f7ddc4f64ab4901604",
+    "semantic_hash": ""
+  },
+  "frontend/vitest.config.ts": {
+    "mtime": 1783168679.62178,
+    "ast_hash": "3afc875f7e04de15d0271eb47503d12c",
+    "semantic_hash": ""
+  },
+  "nginx/entrypoint.sh": {
+    "mtime": 1783168679.6227822,
+    "ast_hash": "f5a8cf2dad343a238979efb3f5a8fe63",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1783172063.6377575,
+    "ast_hash": "136c2c47debd1928c7dafefb2d938ec1",
+    "semantic_hash": ""
+  },
+  ".github/dependabot.yml": {
+    "mtime": 1783168679.4638703,
+    "ast_hash": "c1c077679babb1f9dd03e2e344e14b92",
+    "semantic_hash": ""
+  },
+  ".github/workflows/ci.yml": {
+    "mtime": 1783168679.5657153,
+    "ast_hash": "f1dc2b15beb51ad7e3c63951296402c1",
+    "semantic_hash": ""
+  },
+  ".github/workflows/codeql.yml": {
+    "mtime": 1783168679.5657153,
+    "ast_hash": "c2d5530c4682bdaae7a7ce40d96514b9",
+    "semantic_hash": ""
+  },
+  ".github/workflows/publish.yml": {
+    "mtime": 1783168679.5657153,
+    "ast_hash": "7d84d41664882659af83b98130b6544e",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1783172267.1071167,
+    "ast_hash": "868df0dd92bc3ca48466c1004f7608ac",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1783168679.5667157,
+    "ast_hash": "621237ece97a2fe89d2df579d06ec14d",
+    "semantic_hash": ""
+  },
+  "SECURITY.md": {
+    "mtime": 1783168679.567849,
+    "ast_hash": "302ef1e1b97cef368dee59a87fac81c6",
+    "semantic_hash": ""
+  },
+  "docker-compose.ghcr.yml": {
+    "mtime": 1783168679.5909564,
+    "ast_hash": "a9737c35712acd4adba44d274edb73ee",
+    "semantic_hash": ""
+  },
+  "docker-compose.yml": {
+    "mtime": 1783168679.591956,
+    "ast_hash": "320c985ed5d255d872553114b615788a",
+    "semantic_hash": ""
+  },
+  "frontend/index.html": {
+    "mtime": 1783168679.591956,
+    "ast_hash": "05059a9b6536c2f3df8e15240b9570bf",
+    "semantic_hash": ""
+  },
+  ".github/images/Backups.png": {
+    "mtime": 1783168679.4673736,
+    "ast_hash": "5b34816562258e257f09ef6c8e2aa1ae",
+    "semantic_hash": ""
+  },
+  ".github/images/Client Details.png": {
+    "mtime": 1783168679.474379,
+    "ast_hash": "70de4474ef868e58d10491d5c50b18a8",
+    "semantic_hash": ""
+  },
+  ".github/images/Clients.png": {
+    "mtime": 1783168679.4818876,
+    "ast_hash": "6dc7e5fb0a78db2c2d5fdce8053a237c",
+    "semantic_hash": ""
+  },
+  ".github/images/Dashboard.png": {
+    "mtime": 1783168679.4948993,
+    "ast_hash": "5eceb4b891e5aa32abdeb225cc74648e",
+    "semantic_hash": ""
+  },
+  ".github/images/Device Hardware.png": {
+    "mtime": 1783168679.5004156,
+    "ast_hash": "08cdb413308fa7911f9c02d51e234399",
+    "semantic_hash": ""
+  },
+  ".github/images/Device List.png": {
+    "mtime": 1783168679.5044134,
+    "ast_hash": "b2389fc460c1265c01d7a4b850aac0a2",
+    "semantic_hash": ""
+  },
+  ".github/images/Device Overview.png": {
+    "mtime": 1783168679.5244243,
+    "ast_hash": "da778d2446631f394ce3b698b9a183b3",
+    "semantic_hash": ""
+  },
+  ".github/images/Device Ports.png": {
+    "mtime": 1783168679.5329294,
+    "ast_hash": "f7749583c1f682476365fc5596859ad2",
+    "semantic_hash": ""
+  },
+  ".github/images/Device Wireless Radio.png": {
+    "mtime": 1783168679.5380836,
+    "ast_hash": "e5f62146fd76d71bf9e23c736870c04a",
+    "semantic_hash": ""
+  },
+  ".github/images/Events.png": {
+    "mtime": 1783168679.5485878,
+    "ast_hash": "137c388b37d45e91e7c6a16fb8b765c0",
+    "semantic_hash": ""
+  },
+  ".github/images/Login Page.png": {
+    "mtime": 1783168679.5565882,
+    "ast_hash": "43e7a69ba9ee7f183cdb5942240ace55",
+    "semantic_hash": ""
+  },
+  ".github/images/Topology.png": {
+    "mtime": 1783168679.5647137,
+    "ast_hash": "f9cc3130857e964b6cd47e4975eaface",
+    "semantic_hash": ""
+  },
+  "frontend/public/favicon.svg": {
+    "mtime": 1783168679.593956,
+    "ast_hash": "da4c37c9400ab5a414991a00dbde4c4f",
+    "semantic_hash": ""
+  },
+  "frontend/public/logo-dark.svg": {
+    "mtime": 1783168679.593956,
+    "ast_hash": "681ecd0a00fab31d3aed2532c8f2a317",
+    "semantic_hash": ""
+  },
+  "frontend/public/logo-light.svg": {
+    "mtime": 1783168679.5949557,
+    "ast_hash": "bffcfa582ca05fee4b8ceeabf5adc150",
+    "semantic_hash": ""
+  }
+}

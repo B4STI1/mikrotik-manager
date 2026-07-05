@@ -1,0 +1,12 @@
+{
+  "name": "mikrotik-manager",
+  "version": "0.16.5-beta",
+  "private": true,
+  "scripts": {
+    "install:graphify": "git clone --depth 1 --branch v0.9.6 https://github.com/Graphify-Labs/graphify.git graphify-out/graphify"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
+}

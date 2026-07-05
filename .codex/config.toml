@@ -1,0 +1,7 @@
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+ANTHROPIC_AUTH_TOKEN = "ollama"
+ANTHROPIC_API_KEY = ""
+ANTHROPIC_BASE_URL = "http://localhost:11434"
